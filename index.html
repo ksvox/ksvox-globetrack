@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>世界で“今”聴かれてる曲は？ - Spotify World Music Map</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CSS & JS for Map Rendering -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        spotify: {
+                            green: '#1DB954',
+                            darkGreen: '#1aa34a',
+                            black: '#121212',
+                            card: '#181818',
+                            hover: '#282828',
+                            lightText: '#b3b3b3'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body, html {
+            touch-action: manipulation;
+            overscroll-behavior: none;
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121212;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #282828;
+            border-radius: 4px;
+        }
+
+        /* Esri Dark Gray Canvas タイル設定 */
+        #map {
+            width: 100%;
+            height: 100%;
+            background-color: #09090b;
+            z-index: 10;
+        }
+        .leaflet-container {
+            background: #09090b !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+        .leaflet-control-attribution {
+            background: rgba(0,0,0,0.7) !important;
+            color: #666 !important;
+            font-size: 8px !important;
+        }
+
+        /* ニュースティッカー アニメーション */
+        @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+            display: inline-flex;
+            white-space: nowrap;
+            animation: marquee 32s linear infinite;
+        }
+        .animate-marquee:hover {
+            animation-play-state: paused;
+        }
+
+        /* 脈動ピン＆浮遊吹き出しエフェクト */
+        @keyframes pulse-glow {
+            0% { transform: scale(0.9); opacity: 0.9; box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.7); }
+            70% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 0 10px rgba(29, 185, 84, 0); }
+            100% { transform: scale(0.9); opacity: 0.9; box-shadow: 0 0 0 0 rgba(29, 185, 84, 0); }
+        }
+        .pulse-glow-pin {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes float-gentle {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+        .animate-float {
+            animation: float-gentle 2.8s ease-in-out infinite;
+        }
+
+        /* ボトムシート */
+        .bottom-sheet {
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform;
+        }
+        .bottom-sheet.closed {
+            transform: translateY(102%);
+        }
+        .bottom-sheet.open {
+            transform: translateY(0);
+        }
+
+        /* ランキングバッジスタイル */
+        .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; font-weight: 800; }
+        .rank-2 { background: linear-gradient(135deg, #E0E0E0, #9E9E9E); color: #000; font-weight: 800; }
+        .rank-3 { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; font-weight: 800; }
+        .rank-other { background: #282828; color: #b3b3b3; }
+
+        .leaflet-div-icon {
+            background: transparent !important;
+            border: none !important;
+        }
+    </style>
+</head>
+<body class="bg-spotify-black text-white select-none font-sans h-full w-full">
+
+    <div class="flex flex-col h-full w-full max-w-md mx-auto relative bg-spotify-black border-x border-zinc-900 shadow-2xl overflow-hidden">
+        
+        <!-- Header Section -->
+        <header class="pt-3 px-4 pb-2 bg-gradient-to-b from-black via-black/95 to-transparent z-20 flex flex-col space-y-1 shrink-0">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="w-7 h-7 rounded-full bg-spotify-green flex items-center justify-center text-black shadow-lg shadow-spotify-green/30 shrink-0">
+                        <i class="fa-brands fa-spotify text-lg"></i>
+                    </div>
+                    <span class="text-xs font-bold tracking-wider text-spotify-green uppercase">Spotify Realtime Trends</span>
+                </div>
+                <!-- Action Buttons: AI Vibe Matcher & Info Modal -->
+                <div class="flex items-center space-x-1.5">
+                    <button id="open-vibe-btn" class="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/30 text-[11px] font-bold flex items-center space-x-1 transition shadow-sm">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                        <span>AI Vibe</span>
+                    </button>
+                    <button id="open-info-btn" class="w-8 h-8 rounded-full bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-700 transition">
+                        <i class="fa-solid fa-circle-info text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-white leading-tight">
+                世界で“今”聴かれてる曲は？
+            </h1>
+            <p class="text-[11px] text-zinc-400">ピンタップで「Daily Top 10」、上の国名で「Billboard Hot 40」</p>
+        </header>
+
+        <!-- 上部主要3カ国ボタン（Billboard Hot 40表示） -->
+        <div class="px-3 py-2 z-20 flex items-center space-x-2 overflow-x-auto scrollbar-none shrink-0 bg-black/60 backdrop-blur-md border-b border-zinc-800/60">
+            <button onclick="selectBillboard('US')" class="chip-btn flex-1 min-w-[110px] px-3 py-2 rounded-xl bg-zinc-900/90 border border-amber-500/50 hover:border-amber-400 text-xs font-bold text-white shadow-lg flex items-center justify-center space-x-1.5 active:scale-95 transition">
+                <span class="text-base">🇺🇸</span>
+                <div class="text-left leading-none">
+                    <div class="text-[9px] text-amber-400 uppercase font-semibold">Billboard</div>
+                    <div>アメリカ Hot40</div>
+                </div>
+            </button>
+
+            <button onclick="selectBillboard('GB')" class="chip-btn flex-1 min-w-[110px] px-3 py-2 rounded-xl bg-zinc-900/90 border border-blue-500/50 hover:border-blue-400 text-xs font-bold text-white shadow-lg flex items-center justify-center space-x-1.5 active:scale-95 transition">
+                <span class="text-base">🇬🇧</span>
+                <div class="text-left leading-none">
+                    <div class="text-[9px] text-blue-400 uppercase font-semibold">Billboard</div>
+                    <div>イギリス Hot40</div>
+                </div>
+            </button>
+
+            <button onclick="selectBillboard('JP')" class="chip-btn flex-1 min-w-[110px] px-3 py-2 rounded-xl bg-zinc-900/90 border border-red-500/50 hover:border-red-400 text-xs font-bold text-white shadow-lg flex items-center justify-center space-x-1.5 active:scale-95 transition">
+                <span class="text-base">🇯🇵</span>
+                <div class="text-left leading-none">
+                    <div class="text-[9px] text-red-400 uppercase font-semibold">Billboard</div>
+                    <div>日本 Hot40</div>
+                </div>
+            </button>
+
+            <button onclick="selectBillboard('GLOBAL')" class="chip-btn px-3 py-2 rounded-xl bg-zinc-900/80 border border-zinc-700 text-xs font-bold text-zinc-300 hover:text-white shadow-lg flex items-center space-x-1.5 active:scale-95 transition">
+                <span class="text-base">🌐</span>
+                <span class="whitespace-nowrap">Global 40</span>
+            </button>
+        </div>
+
+        <!-- Map Container -->
+        <div class="flex-1 relative w-full overflow-hidden select-none">
+            <div id="map"></div>
+
+            <!-- ズームインジケーター & 全体表示ボタン -->
+            <div id="zoom-indicator" class="absolute top-3 right-3 z-20 bg-zinc-900/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-zinc-700/60 text-[10px] text-zinc-300 flex items-center space-x-1.5 pointer-events-auto transition duration-300 shadow-lg">
+                <i class="fa-solid fa-magnifying-glass text-spotify-green"></i>
+                <span id="zoom-text">拡大で他国のピンも表示 🔎</span>
+                <button onclick="fitWorldToContainer(true)" class="ml-1 pl-1.5 border-l border-zinc-700 text-spotify-green font-bold hover:underline active:scale-95 transition">
+                    全体 🌐
+                </button>
+            </div>
+        </div>
+
+        <!-- 自動更新 ニュースティッカーバー -->
+        <div class="z-20 bg-zinc-950 border-t border-zinc-800/80 py-1.5 px-3 overflow-hidden flex items-center shrink-0">
+            <div class="flex items-center space-x-1.5 bg-spotify-green/20 text-spotify-green px-2 py-0.5 rounded text-[10px] font-extrabold uppercase shrink-0 mr-2 border border-spotify-green/30">
+                <i class="fa-solid fa-bolt text-[9px] animate-pulse"></i>
+                <span>News</span>
+            </div>
+            <div class="overflow-hidden whitespace-nowrap flex-1">
+                <div id="news-ticker-content" class="animate-marquee inline-block">
+                    <!-- Dynamic RSS news items rendered here -->
+                    <span class="text-xs text-zinc-400 mr-8">最新の音楽ニュースを取得中...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提供元クレジットバー -->
+        <footer class="z-20 bg-black border-t border-zinc-900 py-2 px-4 text-center shrink-0">
+            <p class="text-[11px] text-zinc-400 flex items-center justify-center space-x-1">
+                <span>提供：</span>
+                <a href="https://ksvox.net" target="_blank" rel="noopener noreferrer" class="font-bold text-spotify-green hover:underline flex items-center space-x-1 transition">
+                    <span>ボーカル道場K's VOX</span>
+                    <i class="fa-solid fa-up-right-from-square text-[9px] ml-0.5"></i>
+                </a>
+            </p>
+        </footer>
+
+        <!-- Bottom Sheet Container -->
+        <div id="ranking-sheet" class="bottom-sheet closed absolute inset-x-0 bottom-0 h-[82%] z-40 bg-zinc-950/95 border-t border-zinc-800 rounded-t-3xl shadow-2xl flex flex-col backdrop-blur-2xl">
+            <div id="sheet-handle" class="w-full py-3 flex justify-center items-center cursor-pointer active:opacity-70 shrink-0">
+                <div class="w-12 h-1.5 rounded-full bg-zinc-700"></div>
+            </div>
+
+            <div class="px-5 pb-3 flex items-center justify-between border-b border-zinc-800/80 shrink-0">
+                <div class="flex items-center space-x-3">
+                    <span id="sheet-flag" class="text-3xl">🇺🇸</span>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h2 id="sheet-country-name" class="text-base font-bold text-white tracking-wide">Billboard Hot 40</h2>
+                            <span id="data-type-badge" class="px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">Billboard Hot 40</span>
+                        </div>
+                        <p id="sheet-subtitle" class="text-xs text-zinc-400">全米ヒットチャート TOP 1〜40</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="ai-analyze-btn" onclick="triggerAIChartAnalysis()" class="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-extrabold text-[11px] shadow-lg hover:brightness-110 active:scale-95 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-brain"></i>
+                        <span>AI解説</span>
+                    </button>
+                    <button id="close-sheet-btn" class="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center transition">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- AI Insight Section Container inside Bottom Sheet -->
+            <div id="ai-chart-insight-box" class="hidden border-b border-zinc-800/80 bg-zinc-900/60 px-5 py-3 space-y-2 shrink-0 max-h-48 overflow-y-auto">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-1.5 text-xs font-bold text-spotify-green">
+                        <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i>
+                        <span>Gemini AI によるヒット分析 & 文化考察</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="ai-tts-btn" onclick="playAIRadioDJ()" class="text-[10px] bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 px-2 py-1 rounded-lg font-bold flex items-center space-x-1 transition">
+                            <i class="fa-solid fa-volume-high text-spotify-green"></i>
+                            <span id="ai-tts-status">AI DJ音声で聴く 🎙️</span>
+                        </button>
+                        <button onclick="hideAIInsightBox()" class="text-zinc-500 hover:text-zinc-300 text-xs">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="ai-insight-content" class="text-xs text-zinc-300 leading-relaxed space-y-1.5">
+                    <!-- Dynamic AI Content -->
+                </div>
+                <div id="ai-grounding-sources" class="text-[10px] text-zinc-500 pt-1 flex flex-wrap gap-2"></div>
+            </div>
+
+            <div id="song-list-container" class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+                <!-- Dynamic track items -->
+            </div>
+        </div>
+
+        <!-- AI Vibe Matcher Modal -->
+        <div id="vibe-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center shrink-0">
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-spotify-green"></i>
+                        <span>AI Vibe Matcher & 選曲</span>
+                    </h3>
+                    <button id="close-vibe-btn" class="text-zinc-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <p class="text-xs text-zinc-400 shrink-0">気分やシチュエーションを入力すると、Gemini AIが世界のトレンドからピッタリの楽曲を提案します。</p>
+
+                <!-- Quick Preset Pills -->
+                <div class="flex flex-wrap gap-1.5 shrink-0">
+                    <button onclick="setVibePrompt('Tokyoの夜をドライブしながら聴きたいエモーショナルな楽曲')" class="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] text-zinc-300 hover:border-spotify-green hover:text-white transition">🏎️ 東京夜ドライブ</button>
+                    <button onclick="setVibePrompt('パリのカフェでまったり聴きたいアコースティック')" class="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] text-zinc-300 hover:border-spotify-green hover:text-white transition">☕ パリカフェ</button>
+                    <button onclick="setVibePrompt('ラテンアメリカの情熱的でダンサブルなヒット曲')" class="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] text-zinc-300 hover:border-spotify-green hover:text-white transition">🔥 ラテンダンス</button>
+                    <button onclick="setVibePrompt('テンションが上がるテンポの早いワークアウトソング')" class="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[10px] text-zinc-300 hover:border-spotify-green hover:text-white transition">⚡ ワークアウト</button>
+                </div>
+
+                <div class="flex space-x-2 shrink-0">
+                    <input id="vibe-input" type="text" placeholder="例: 雨の日に部屋でチルしたい曲" class="flex-1 bg-black border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-spotify-green">
+                    <button onclick="searchVibeAI()" class="bg-spotify-green hover:bg-spotify-darkGreen text-black font-bold px-3 py-2 rounded-xl text-xs transition shrink-0">
+                        検索
+                    </button>
+                </div>
+
+                <!-- AI Recommendations Output Container -->
+                <div id="vibe-results-container" class="flex-1 overflow-y-auto space-y-2 pt-1 border-t border-zinc-800">
+                    <p class="text-center text-xs text-zinc-500 py-6">プリセットを選ぶか気分を入力して「検索」を押してください</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Song Story Modal -->
+        <div id="song-insight-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 id="song-modal-title" class="text-sm font-bold text-white truncate pr-2">楽曲解説 & 背景</h3>
+                    <button id="close-song-modal-btn" class="text-zinc-400 hover:text-white shrink-0">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+                <div id="song-modal-body" class="text-xs text-zinc-300 leading-relaxed space-y-2 max-h-60 overflow-y-auto">
+                    <!-- Dynamic AI Song Insight -->
+                </div>
+                <button onclick="closeSongModal()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold py-2 rounded-xl text-xs transition">
+                    閉じる
+                </button>
+            </div>
+        </div>
+
+        <!-- Info Modal -->
+        <div id="info-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-brands fa-spotify text-spotify-green"></i>
+                        <span>アプリについて</span>
+                    </h3>
+                    <button id="close-info-btn" class="text-zinc-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-zinc-300 leading-relaxed">
+                    このアプリはSpotifyの最新ヒットチャートと最新音楽ニュースをVercel Serverless Function経由で安全にリアルタイム取得し、インタラクティブな世界地図上で探索できるサービスです。
+                </p>
+                <div class="pt-2">
+                    <button id="confirm-info-btn" class="w-full bg-spotify-green hover:bg-spotify-darkGreen text-black font-bold py-2.5 rounded-xl text-xs transition shadow-lg shadow-spotify-green/20">
+                        閉じる
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const PRIMARY_COUNTRIES = {
+            'US': { name: 'アメリカ', flag: '🇺🇸', coords: [38.0, -97.0], playlistId: '37i9dQZEVXbLR2M8HJb816', defaultTitle: 'Birds of a Feather' },
+            'GB': { name: 'イギリス', flag: '🇬🇧', coords: [54.0, -2.5], playlistId: '37i9dQZEVXbLnUz3372K9M', defaultTitle: 'Espresso' },
+            'JP': { name: '日本', flag: '🇯🇵', coords: [36.2, 138.2], playlistId: '37i9dQZEVXbKX2BToMBO1X', defaultTitle: 'ライラック' }
+        };
+
+        const SECONDARY_COUNTRIES = {
+            'GLOBAL': { name: 'Global (世界)', flag: '🌐', coords: [15.0, 10.0], playlistId: '37i9dQZEVXbMDoHDwVN2tF' },
+            'KR': { name: '韓国', flag: '🇰🇷', coords: [36.5, 127.8], playlistId: '37i9dQZEVXbJx8hPWmCbdC' },
+            'BR': { name: 'ブラジル', flag: '🇧🇷', coords: [-14.2, -51.9], playlistId: '37i9dQZEVXbMX1v3v313Fw' },
+            'DE': { name: 'ドイツ', flag: '🇩🇪', coords: [51.1, 10.4], playlistId: '37i9dQZEVXbJiLfiC3S6QC' },
+            'FR': { name: 'フランス', flag: '🇫🇷', coords: [46.2, 2.2], playlistId: '37i9dQZEVXbIPW128y3IHy' },
+            'AU': { name: 'オーストラリア', flag: '🇦🇺', coords: [-25.2, 133.7], playlistId: '37i9dQZEVXbJPcfkR3zS2e' },
+            'MX': { name: 'メキシコ', flag: '🇲🇽', coords: [23.6, -102.5], playlistId: '37i9dQZEVXbO3Dyaw4333s' }
+        };
+
+        const MAP_COUNTRIES = { ...PRIMARY_COUNTRIES, ...SECONDARY_COUNTRIES };
+
+        let map = null;
+        let secondaryLayerGroup = null;
+        let currentAudio = null;
+        let currentPlayingUrl = null;
+
+        // Current active chart state
+        let activeCountryCode = 'US';
+        let activeCountryName = 'アメリカ';
+        let activeTracks = [];
+        let currentAIInsightText = '';
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function initMap() {
+            const southWest = L.latLng(-85, -180);
+            const northEast = L.latLng(85, 180);
+            const bounds = L.latLngBounds(southWest, northEast);
+
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: true,
+                maxBounds: bounds,
+                maxBoundsViscosity: 1.0,
+                minZoom: 1.5,
+                maxZoom: 6,
+                worldCopyJump: false
+            });
+
+            /* ★★★★★【地図のURLはここ！(Esri Dark Gray Canvas / 無料・登録不要)】★★★★★ */
+            L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors, and the GIS community',
+                noWrap: true,
+                bounds: bounds,
+                maxZoom: 16,
+                minZoom: 1
+            }).addTo(map);
+
+            secondaryLayerGroup = L.layerGroup().addTo(map);
+
+            // Add Primary Country Markers
+            Object.keys(PRIMARY_COUNTRIES).forEach(code => {
+                const country = PRIMARY_COUNTRIES[code];
+                const marker = createCountryMarker(code, country, true);
+                marker.addTo(map);
+            });
+
+            // Add Secondary Country Markers
+            Object.keys(SECONDARY_COUNTRIES).forEach(code => {
+                const country = SECONDARY_COUNTRIES[code];
+                const marker = createCountryMarker(code, country, false);
+                secondaryLayerGroup.addLayer(marker);
+            });
+
+            map.on('zoomend', handleZoomChange);
+
+            fitWorldToContainer(false);
+            handleZoomChange();
+        }
+
+        function createCountryMarker(code, country, isPrimary) {
+            const isPrimaryBubble = ['US', 'GB', 'JP'].includes(code);
+            const iconHtml = `
+                <div class="relative flex flex-col items-center cursor-pointer group">
+                    ${isPrimaryBubble ? `
+                        <div id="bubble-${code}" class="animate-float mb-1 px-2.5 py-1 rounded-xl bg-zinc-900/95 border border-spotify-green/60 text-white shadow-xl flex items-center space-x-1.5 whitespace-nowrap pointer-events-auto hover:scale-105 transition">
+                            <span class="text-xs">${country.flag}</span>
+                            <div class="text-left">
+                                <div class="text-[9px] text-spotify-green font-bold leading-none">NOW #1 🎵</div>
+                                <div id="bubble-title-${code}" class="text-[11px] font-extrabold max-w-[100px] truncate leading-tight">${country.defaultTitle || 'Loading...'}</div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    <div class="w-8 h-8 rounded-full bg-spotify-green/20 border-2 border-spotify-green flex items-center justify-center pulse-glow-pin shadow-lg hover:scale-110 transition">
+                        <span class="text-sm">${country.flag}</span>
+                    </div>
+                </div>
+            `;
+
+            const customIcon = L.divIcon({
+                html: iconHtml,
+                className: 'custom-map-pin',
+                iconSize: [120, 70],
+                iconAnchor: [60, isPrimaryBubble ? 65 : 35]
+            });
+
+            const marker = L.marker(country.coords, { icon: customIcon });
+            marker.on('click', () => selectDailyTop(code));
+            return marker;
+        }
+
+        function fitWorldToContainer(animate = true) {
+            if (!map) return;
+            const worldBounds = L.latLngBounds([[-60, -170], [75, 170]]);
+            map.fitBounds(worldBounds, {
+                padding: [10, 10],
+                animate: animate,
+                maxZoom: 3
+            });
+        }
+
+        function handleZoomChange() {
+            if (!map || !secondaryLayerGroup) return;
+            const currentZoom = map.getZoom();
+            const zoomText = document.getElementById('zoom-text');
+
+            if (currentZoom >= 2.8) {
+                if (!map.hasLayer(secondaryLayerGroup)) {
+                    map.addLayer(secondaryLayerGroup);
+                }
+                if (zoomText) zoomText.textContent = "全エリア表示中 🌐";
+            } else {
+                if (map.hasLayer(secondaryLayerGroup)) {
+                    map.removeLayer(secondaryLayerGroup);
+                }
+                if (zoomText) zoomText.textContent = "拡大で他国のピンも表示 🔎";
+            }
+        }
+
+        async function updateSpeechBubbles() {
+            for (const code of ['US', 'GB', 'JP']) {
+                const country = PRIMARY_COUNTRIES[code];
+                try {
+                    const tracks = await fetchChartFromBackend(country.playlistId, code, 1);
+                    if (tracks && tracks.length > 0) {
+                        const titleElem = document.getElementById(`bubble-title-${code}`);
+                        if (titleElem) {
+                            titleElem.textContent = tracks[0].title;
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Failed to update bubble for ${code}:`, e);
+                }
+            }
+        }
+
+        async function loadNewsTicker() {
+            const container = document.getElementById('news-ticker-content');
+            if (!container) return;
+
+            try {
+                const res = await fetch('/api/chart?type=news');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.news && data.news.length > 0) {
+                        container.innerHTML = data.news.map(item => `
+                            <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-zinc-300 hover:text-spotify-green hover:underline mr-8 transition inline-flex items-center space-x-1">
+                                <span>${escapeHtml(item.title)}</span>
+                                <i class="fa-solid fa-up-right-from-square text-[9px] opacity-60"></i>
+                            </a>
+                        `).join('');
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('News ticker fetch error:', e);
+            }
+
+            container.innerHTML = `
+                <span class="text-xs text-zinc-300 mr-8">🎵 Spotify Realtime Music Map Chart リリース！世界中のトレンド曲をリアルタイム試聴</span>
+                <span class="text-xs text-zinc-300 mr-8">🔥 US / UK / 日本の最新Billboard Hot 40 チャート更新中</span>
+                <span class="text-xs text-zinc-300 mr-8">✨ Gemini AI による最新ヒット分析 & 選曲機能 搭載</span>
+            `;
+        }
+
+        async function fetchChartFromBackend(playlistId, countryCode, limit = 10) {
+            try {
+                const res = await fetch(`/api/chart?playlistId=${playlistId}&country=${countryCode}&limit=${limit}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.tracks && data.tracks.length > 0) {
+                        return data.tracks;
+                    }
+                }
+            } catch (err) {
+                console.warn('Backend API fetch error, using local fallback:', err);
+            }
+            return getLocalDemoTracks(countryCode, limit);
+        }
+
+        function getLocalDemoTracks(countryCode, limit = 10) {
+            const demoDb = {
+                'US': [
+                    { rank: 1, title: 'Birds of a Feather', artist: 'Billie Eilish', img: 'https://i.scdn.co/image/ab67616d0000b27371d62ea7ea8a5be92d3c8262', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 2, title: 'A Bar Song (Tipsy)', artist: 'Shaboozey', img: 'https://i.scdn.co/image/ab67616d0000b273b3e2154366e665971485295c', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 3, title: 'Espresso', artist: 'Sabrina Carpenter', img: 'https://i.scdn.co/image/ab67616d0000b273fd8d7aeeed7e3e29f8f4165d', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 4, title: 'Not Like Us', artist: 'Kendrick Lamar', img: 'https://i.scdn.co/image/ab67616d0000b2731ea0c62b2339cbf493a999ad', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 5, title: 'I Had Some Help', artist: 'Post Malone ft. Morgan Wallen', img: 'https://i.scdn.co/image/ab67616d0000b2739a826470402e1c9d2334e357', url: 'https://open.spotify.com', previewUrl: null }
+                ],
+                'JP': [
+                    { rank: 1, title: 'ライラック', artist: 'Mrs. GREEN APPLE', img: 'https://i.scdn.co/image/ab67616d0000b2736bc88d44c455436b70a25fae', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 2, title: 'Bling-Bang-Bang-Born', artist: 'Creepy Nuts', img: 'https://i.scdn.co/image/ab67616d0000b27329d5b78b8a599be5fb2d525a', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 3, title: '晩餐歌', artist: 'tuki.', img: 'https://i.scdn.co/image/ab67616d0000b27339d332d733475fb14db0fb1c', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 4, title: '幾億光年', artist: 'Omoinotake', img: 'https://i.scdn.co/image/ab67616d0000b2733e8ca773d579b2a758782d73', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 5, title: '怪獣の花唄', artist: 'Vaundy', img: 'https://i.scdn.co/image/ab67616d0000b273204fb91e0a9d9e68c9bcad39', url: 'https://open.spotify.com', previewUrl: null }
+                ],
+                'GB': [
+                    { rank: 1, title: 'Espresso', artist: 'Sabrina Carpenter', img: 'https://i.scdn.co/image/ab67616d0000b273fd8d7aeeed7e3e29f8f4165d', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 2, title: 'Please Please Please', artist: 'Sabrina Carpenter', img: 'https://i.scdn.co/image/ab67616d0000b273fd8d7aeeed7e3e29f8f4165d', url: 'https://open.spotify.com', previewUrl: null },
+                    { rank: 3, title: 'Birds of a Feather', artist: 'Billie Eilish', img: 'https://i.scdn.co/image/ab67616d0000b27371d62ea7ea8a5be92d3c8262', url: 'https://open.spotify.com', previewUrl: null }
+                ]
+            };
+
+            const base = demoDb[countryCode] || demoDb['US'];
+            const results = [];
+            for (let i = 0; i < limit; i++) {
+                if (i < base.length) {
+                    results.push(base[i]);
+                } else {
+                    const num = i + 1;
+                    results.push({
+                        rank: num,
+                        title: `${countryCode} Top Hit #${num}`,
+                        artist: `Popular Artist ${num}`,
+                        img: `https://placehold.co/300x300/181818/1db954?text=%23${num}`,
+                        url: 'https://open.spotify.com',
+                        previewUrl: null
+                    });
+                }
+            }
+            return results;
+        }
+
+        function showLoadingSheet(message) {
+            const sheet = document.getElementById('ranking-sheet');
+            const container = document.getElementById('song-list-container');
+            sheet.classList.remove('closed');
+            sheet.classList.add('open');
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-16 space-y-3">
+                    <div class="w-8 h-8 border-3 border-spotify-green border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-xs text-zinc-400 font-medium">${escapeHtml(message)}</p>
+                </div>
+            `;
+        }
+
+        function closeSheet() {
+            const sheet = document.getElementById('ranking-sheet');
+            sheet.classList.remove('open');
+            sheet.classList.add('closed');
+        }
+
+        function toggleAudio(url, btn) {
+            if (!url) return;
+            if (currentAudio && currentPlayingUrl === url) {
+                if (currentAudio.paused) {
+                    currentAudio.play();
+                    btn.innerHTML = '<i class="fa-solid fa-pause text-xs"></i>';
+                } else {
+                    currentAudio.pause();
+                    btn.innerHTML = '<i class="fa-solid fa-play text-xs"></i>';
+                }
+            } else {
+                if (currentAudio) currentAudio.pause();
+                currentAudio = new Audio(url);
+                currentPlayingUrl = url;
+                currentAudio.play();
+                btn.innerHTML = '<i class="fa-solid fa-pause text-xs"></i>';
+                currentAudio.onended = () => {
+                    btn.innerHTML = '<i class="fa-solid fa-play text-xs"></i>';
+                    currentPlayingUrl = null;
+                };
+            }
+        }
+
+        // Utility for Exponential Backoff Calls to Gemini API
+        async function callGeminiApi(apiUrl, payload, maxRetries = 3) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                } catch (err) {
+                    console.warn(`Gemini API attempt ${i + 1} failed:`, err);
+                }
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2;
+            }
+            throw new Error('Gemini API call failed after retries');
+        }
+
+        // PCM16 Audio Buffer to WAV Conversion for TTS Playback
+        function pcmToWav(pcm16Array, sampleRate) {
+            const buffer = new ArrayBuffer(44 + pcm16Array.length * 2);
+            const view = new DataView(buffer);
+
+            function writeString(offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + pcm16Array.length * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, pcm16Array.length * 2, true);
+
+            let offset = 44;
+            for (let i = 0; i < pcm16Array.length; i++, offset += 2) {
+                view.setInt16(offset, pcm16Array[i], true);
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        async function triggerAIChartAnalysis() {
+            const insightBox = document.getElementById('ai-chart-insight-box');
+            const insightContent = document.getElementById('ai-insight-content');
+            const sourcesBox = document.getElementById('ai-grounding-sources');
+
+            insightBox.classList.remove('hidden');
+            insightContent.innerHTML = `
+                <div class="flex items-center space-x-2 py-2">
+                    <div class="w-4 h-4 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs text-zinc-400 font-medium">Gemini AI が ${activeCountryName} のリアルタイム音楽トレンドを分析中...</span>
+                </div>
+            `;
+            sourcesBox.innerHTML = '';
+
+            const top3 = activeTracks.slice(0, 5).map(t => `"${t.title}" by ${t.artist}`).join(', ');
+            const systemPrompt = `You are a world-class music musicologist and pop culture analyst. Provide a concise, engaging summary in Japanese (3-4 sentences max) explaining why these songs are trending in ${activeCountryName}, what musical elements or social trends define this current top chart, and cultural background. Formatted clearly with bullet points.`;
+            const userQuery = `Analyze current top music chart in ${activeCountryName}. Top songs right now: ${top3}. Explain the sound trends and cultural vibe.`;
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            try {
+                const result = await callGeminiApi(apiUrl, payload);
+                const candidate = result.candidates?.[0];
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const text = candidate.content.parts[0].text;
+                    currentAIInsightText = text;
+                    insightContent.innerHTML = `<p class="whitespace-pre-line leading-relaxed">${escapeHtml(text)}</p>`;
+
+                    // Grounding sources
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        const sources = groundingMetadata.groundingAttributions
+                            .map(attr => ({ uri: attr.web?.uri, title: attr.web?.title }))
+                            .filter(s => s.uri && s.title);
+
+                        if (sources.length > 0) {
+                            sourcesBox.innerHTML = `<span class="font-bold text-zinc-400">参考情報:</span> ` + sources.slice(0, 3).map(s => 
+                                `<a href="${escapeHtml(s.uri)}" target="_blank" class="hover:underline text-spotify-green truncate max-w-[150px] inline-block">${escapeHtml(s.title)}</a>`
+                            ).join(' • ');
+                        }
+                    }
+                } else {
+                    insightContent.innerHTML = `<p class="text-zinc-400">AI分析の生成に失敗しました。</p>`;
+                }
+            } catch (err) {
+                insightContent.innerHTML = `<p class="text-red-400">AI分析呼び出しエラーが発生しました。</p>`;
+            }
+        }
+
+        function hideAIInsightBox() {
+            document.getElementById('ai-chart-insight-box').classList.add('hidden');
+        }
+
+        async function playAIRadioDJ() {
+            if (!currentAIInsightText) {
+                await triggerAIChartAnalysis();
+            }
+
+            const ttsStatus = document.getElementById('ai-tts-status');
+            ttsStatus.textContent = "音声生成中... 🎙️";
+
+            const radioScript = `ラジオDJ風に熱気をもって紹介します！${activeCountryName}のトレンドチャート！ ${currentAIInsightText.replace(/[\n*]/g, ' ')}`;
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: radioScript }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: "Aoede" }
+                        }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            try {
+                const result = await callGeminiApi(apiUrl, payload);
+                const part = result?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
+
+                if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                    const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                    const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 24000;
+                    
+                    const pcm16Buffer = new Int16Array(base64ToArrayBuffer(audioData));
+                    const wavBlob = pcmToWav(pcm16Buffer, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+
+                    if (currentAudio) currentAudio.pause();
+                    currentAudio = new Audio(audioUrl);
+                    currentAudio.play();
+
+                    ttsStatus.textContent = "再生中 🔊";
+                    currentAudio.onended = () => {
+                        ttsStatus.textContent = "AI DJ音声で聴く 🎙️";
+                    };
+                } else {
+                    ttsStatus.textContent = "音声データ取得失敗";
+                }
+            } catch (err) {
+                console.error("TTS generation failed:", err);
+                ttsStatus.textContent = "音声エラー";
+            }
+        }
+
+        async function showSongAIInsight(title, artist) {
+            const modal = document.getElementById('song-insight-modal');
+            const modalTitle = document.getElementById('song-modal-title');
+            const modalBody = document.getElementById('song-modal-body');
+
+            modalTitle.textContent = `🎵 ${title} - ${artist}`;
+            modalBody.innerHTML = `
+                <div class="flex items-center space-x-2 py-4 justify-center">
+                    <div class="w-5 h-5 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs text-zinc-400">Gemini AI が楽曲ストーリーを分析中...</span>
+                </div>
+            `;
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: `Provide a short 3-bullet-point summary in Japanese about the song "${title}" by ${artist}. Include: 1) What the song lyrics/story are about. 2) The musical style/genre. 3) Why fans love it.` }]
+                }],
+                systemInstruction: { parts: [{ text: "You are a musical analyst expert. Keep responses concise, inspiring, and easy to read." }] }
+            };
+
+            try {
+                const result = await callGeminiApi(apiUrl, payload);
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    modalBody.innerHTML = `<p class="whitespace-pre-line leading-relaxed text-zinc-200">${escapeHtml(text)}</p>`;
+                } else {
+                    modalBody.innerHTML = `<p class="text-zinc-400">楽曲解説の取得に失敗しました。</p>`;
+                }
+            } catch (e) {
+                modalBody.innerHTML = `<p class="text-red-400">エラーが発生しました。</p>`;
+            }
+        }
+
+        function closeSongModal() {
+            document.getElementById('song-insight-modal').classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function setVibePrompt(text) {
+            document.getElementById('vibe-input').value = text;
+        }
+
+        async function searchVibeAI() {
+            const inputVal = document.getElementById('vibe-input').value.trim();
+            if (!inputVal) return;
+
+            const resultsContainer = document.getElementById('vibe-results-container');
+            resultsContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-8 space-y-2">
+                    <div class="w-7 h-7 border-3 border-spotify-green border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-xs text-zinc-400">Gemini AI がおすすめの曲を選曲中...</p>
+                </div>
+            `;
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: `The user wants music for the vibe: "${inputVal}". Recommend 3 songs that best fit this mood. Return a structured JSON array of objects with keys: "title", "artist", "reason", "searchQuery".` }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "title": { "type": "STRING" },
+                                "artist": { "type": "STRING" },
+                                "reason": { "type": "STRING" },
+                                "searchQuery": { "type": "STRING" }
+                            },
+                            "propertyOrdering": ["title", "artist", "reason", "searchQuery"]
+                        }
+                    }
+                }
+            };
+
+            try {
+                const result = await callGeminiApi(apiUrl, payload);
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonText) {
+                    const songs = JSON.parse(jsonText);
+                    resultsContainer.innerHTML = '';
+                    songs.forEach((s, idx) => {
+                        const div = document.createElement('div');
+                        div.className = "bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 space-y-1";
+                        div.innerHTML = `
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xs font-bold text-white truncate">${idx + 1}. ${escapeHtml(s.title)}</h4>
+                                <a href="https://open.spotify.com/search/${encodeURIComponent(s.searchQuery || s.title + ' ' + s.artist)}" target="_blank" class="px-2 py-0.5 rounded-full bg-spotify-green/20 text-spotify-green text-[10px] font-bold hover:bg-spotify-green hover:text-black transition">
+                                    <i class="fa-brands fa-spotify"></i> 聴く
+                                </a>
+                            </div>
+                            <p class="text-[11px] text-zinc-400">${escapeHtml(s.artist)}</p>
+                            <p class="text-[10px] text-emerald-400/90 leading-tight">💡 ${escapeHtml(s.reason)}</p>
+                        `;
+                        resultsContainer.appendChild(div);
+                    });
+                } else {
+                    resultsContainer.innerHTML = `<p class="text-xs text-zinc-400 py-4 text-center">推薦楽曲が見つかりませんでした。</p>`;
+                }
+            } catch (err) {
+                resultsContainer.innerHTML = `<p class="text-xs text-red-400 py-4 text-center">AI検索エラーが発生しました。</p>`;
+            }
+        }
+
+        async function selectBillboard(countryCode) {
+            const country = MAP_COUNTRIES[countryCode] || MAP_COUNTRIES['US'];
+            activeCountryCode = countryCode;
+            activeCountryName = country.name;
+            hideAIInsightBox();
+            
+            document.getElementById('sheet-flag').textContent = country.flag;
+            document.getElementById('sheet-country-name').textContent = `${country.name} Billboard`;
+            document.getElementById('sheet-subtitle').textContent = `Billboard Hot 40 (1位〜40位)`;
+            
+            const badge = document.getElementById('data-type-badge');
+            badge.textContent = "Billboard Hot 40";
+            badge.className = "px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30";
+
+            showLoadingSheet("Billboard Hot 40 取得中...");
+            const tracks = await fetchChartFromBackend(country.playlistId, countryCode, 40);
+            activeTracks = tracks || [];
+            renderTrackList(activeTracks);
+        }
+
+        async function selectDailyTop(countryCode) {
+            const country = MAP_COUNTRIES[countryCode] || MAP_COUNTRIES['US'];
+            activeCountryCode = countryCode;
+            activeCountryName = country.name;
+            hideAIInsightBox();
+            
+            document.getElementById('sheet-flag').textContent = country.flag;
+            document.getElementById('sheet-country-name').textContent = `${country.name} Daily Top`;
+            document.getElementById('sheet-subtitle').textContent = `“今”最も聴かれている Daily Hits Top 10`;
+            
+            const badge = document.getElementById('data-type-badge');
+            badge.textContent = "Daily Top 10";
+            badge.className = "px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-spotify-green/20 text-spotify-green border border-spotify-green/30";
+
+            showLoadingSheet(`${country.name} Daily Top 10 取得中...`);
+            const tracks = await fetchChartFromBackend(country.playlistId, countryCode, 10);
+            activeTracks = tracks || [];
+            renderTrackList(activeTracks);
+        }
+
+        function renderTrackList(tracks) {
+            const container = document.getElementById('song-list-container');
+            container.innerHTML = '';
+
+            if (tracks.length === 0) {
+                container.innerHTML = `<p class="text-center text-xs text-zinc-500 py-10">データが取得できませんでした</p>`;
+                return;
+            }
+
+            tracks.forEach(track => {
+                const rankClass = track.rank === 1 ? 'rank-1' : track.rank === 2 ? 'rank-2' : track.rank === 3 ? 'rank-3' : 'rank-other';
+                
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-2.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 transition border border-zinc-800/60 group';
+                
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3 min-w-0 flex-1 pr-2">
+                        <div class="w-7 h-7 rounded-lg ${rankClass} flex items-center justify-center text-xs shrink-0 shadow">
+                            ${track.rank}
+                        </div>
+                        <div class="relative w-11 h-11 rounded-md overflow-hidden shrink-0 bg-zinc-800 border border-zinc-700/50">
+                            <img src="${escapeHtml(track.img)}" alt="${escapeHtml(track.title)}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.src='https://placehold.co/300x300/181818/ffffff?text=Music'">
+                            ${track.previewUrl ? `
+                                <button onclick="toggleAudio('${track.previewUrl}', this)" class="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition">
+                                    <i class="fa-solid fa-play text-xs"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h4 class="text-xs font-bold text-white truncate leading-tight">${escapeHtml(track.title)}</h4>
+                            <p class="text-[11px] text-zinc-400 truncate mt-0.5">${escapeHtml(track.artist)}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                        <button onclick="showSongAIInsight('${escapeHtml(track.title).replace(/'/g, "\\'")}', '${escapeHtml(track.artist).replace(/'/g, "\\'")}')" title="AI楽曲解説" class="w-7 h-7 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs transition">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </button>
+                        <a href="${track.url}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-full bg-spotify-green/10 hover:bg-spotify-green text-spotify-green hover:text-black border border-spotify-green/30 text-[11px] font-bold flex items-center space-x-1 transition">
+                            <i class="fa-brands fa-spotify text-xs"></i>
+                            <span>再生</span>
+                        </a>
+                    </div>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            initMap();
+
+            let resizeTimer;
+            const handleResize = () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    fitWorldToContainer(false);
+                }, 150);
+            };
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('orientationchange', handleResize);
+
+            updateSpeechBubbles();
+            loadNewsTicker();
+
+            document.getElementById('close-sheet-btn').addEventListener('click', closeSheet);
+            document.getElementById('sheet-handle').addEventListener('click', closeSheet);
+
+            // Info Modal listeners
+            const modal = document.getElementById('info-modal');
+            document.getElementById('open-info-btn').addEventListener('click', () => {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+            });
+            document.getElementById('close-info-btn').addEventListener('click', () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+            });
+            document.getElementById('confirm-info-btn').addEventListener('click', () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+            });
+
+            // Vibe Matcher Modal listeners
+            const vibeModal = document.getElementById('vibe-modal');
+            document.getElementById('open-vibe-btn').addEventListener('click', () => {
+                vibeModal.classList.remove('opacity-0', 'pointer-events-none');
+            });
+            document.getElementById('close-vibe-btn').addEventListener('click', () => {
+                vibeModal.classList.add('opacity-0', 'pointer-events-none');
+            });
+
+            // Song insight modal listener
+            document.getElementById('close-song-modal-btn').addEventListener('click', closeSongModal);
+        });
+    </script>
+</body>
+</html>
