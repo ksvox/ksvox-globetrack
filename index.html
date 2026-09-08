@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja" class="dark h-full">
 <head>
-    <!-- スマホ用エラー表示ツール -->
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>世界で“今”聴かれてる曲は？ - World Sound Chart</title>
@@ -94,7 +91,7 @@
             animation: marquee 30s linear infinite;
         }
 
-        /* ピン＆吹き出しのアニメーション */
+        /* ピンのアニメーション */
         @keyframes pulse-glow {
             0% { transform: scale(0.95); opacity: 0.85; }
             50% { transform: scale(1.05); opacity: 1; }
@@ -104,7 +101,7 @@
             animation: pulse-glow 2.2s infinite ease-in-out;
         }
 
-        /* ボトムシート（スライド表示） */
+        /* ボトムシート */
         .bottom-sheet {
             transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
             will-change: transform;
@@ -144,13 +141,13 @@
 
         <!-- 主要3カ国 Billboard Hot 20 ボタン -->
         <div class="px-2.5 py-2 z-20 flex items-center space-x-2 overflow-x-auto shrink-0 bg-black/80 border-b border-zinc-800">
-            <button onclick="fetchChart('US', 'billboard', '🇺🇸 アメリカ Billboard Hot 20')" class="flex-1 min-w-[100px] px-2 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/50 text-xs font-bold text-white flex items-center justify-center space-x-1 hover:border-amber-400 active:scale-95 transition-all">
+            <button onclick="fetchChart('US', 'billboard', '🇺🇸 アメリカ Billboard Hot 20')" class="flex-1 min-w-[100px] px-2 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/50 text-xs font-bold text-white flex items-center justify-center space-x-1 hover:border-amber-400 active:scale-95 transition-all cursor-pointer">
                 <span>🇺🇸 米 Billboard</span>
             </button>
-            <button onclick="fetchChart('GB', 'billboard', '🇬🇧 イギリス Billboard Hot 20')" class="flex-1 min-w-[100px] px-2 py-1.5 rounded-xl bg-zinc-900 border border-blue-500/50 text-xs font-bold text-white flex items-center justify-center space-x-1 hover:border-blue-400 active:scale-95 transition-all">
+            <button onclick="fetchChart('GB', 'billboard', '🇬🇧 イギリス Billboard Hot 20')" class="flex-1 min-w-[100px] px-2 py-1.5 rounded-xl bg-zinc-900 border border-blue-500/50 text-xs font-bold text-white flex items-center justify-center space-x-1 hover:border-blue-400 active:scale-95 transition-all cursor-pointer">
                 <span>🇬🇧 英 Billboard</span>
             </button>
-            <button onclick="fetchChart('JP', 'billboard', '🇯🇵 日本 Billboard Hot 20')" class="flex-1 min-w-[100px] px-2 py-1.5 rounded-xl bg-zinc-900 border border-red-500/50 text-xs font-bold text-white flex items-center justify-center space-x-1 hover:border-red-400 active:scale-95 transition-all">
+            <button onclick="fetchChart('JP', 'billboard', '🇯🇵 日本 Billboard Hot 20')" class="flex-1 min-w-[100px] px-2 py-1.5 rounded-xl bg-zinc-900 border border-red-500/50 text-xs font-bold text-white flex items-center justify-center space-x-1 hover:border-red-400 active:scale-95 transition-all cursor-pointer">
                 <span>🇯🇵 日 Billboard</span>
             </button>
         </div>
@@ -168,7 +165,8 @@
             </div>
             <div class="overflow-hidden whitespace-nowrap flex-1 text-xs text-zinc-300">
                 <span id="news-ticker-text" class="animate-marquee inline-block">
-                    🎵 Billboard: グローバルストリーミングチャート最新更新 &nbsp;&nbsp;&nbsp;&nbsp; 🎵 NME: 今週の世界の注目のニューリリース・ヒット曲 &nbsp;&nbsp;&nbsp;&nbsp; 🎵 Official Charts: 各国デイリーランキング＆トレンド分析
+                    <span>🎵 Billboard: グローバルストリーミングチャート最新更新 &nbsp;&nbsp;&nbsp;&nbsp; 🎵 NME: 今週の世界の注目のニューリリース・ヒット曲 &nbsp;&nbsp;&nbsp;&nbsp; 🎵 Official Charts: 各国デイリーランキング＆トレンド分析 &nbsp;&nbsp;&nbsp;&nbsp;</span>
+                    <span>🎵 Billboard: グローバルストリーミングチャート最新更新 &nbsp;&nbsp;&nbsp;&nbsp; 🎵 NME: 今週の世界の注目のニューリリース・ヒット曲 &nbsp;&nbsp;&nbsp;&nbsp; 🎵 Official Charts: 各国デイリーランキング＆トレンド分析 &nbsp;&nbsp;&nbsp;&nbsp;</span>
                 </span>
             </div>
         </div>
@@ -200,7 +198,6 @@
     </div>
 
     <script>
-        // 国データリスト
         const COUNTRIES = {
             'US': { name: 'アメリカ', flag: '🇺🇸', coords: [38.0, -97.0], primary: true, topSong: 'Birds of a Feather' },
             'GB': { name: 'イギリス', flag: '🇬🇧', coords: [54.0, -2.5], primary: true, topSong: 'Espresso' },
@@ -212,7 +209,6 @@
             'AU': { name: 'オーストラリア', flag: '🇦🇺', coords: [-25.2, 133.7], primary: false, topSong: 'Birds of a Feather' }
         };
 
-        // デモ用楽曲データベース（ローカルプレビューおよび通信オフライン時用）
         const DEMO_CHARTS = {
             'US': [
                 { title: 'A Bar Song (Tipsy)', artist: 'Shaboozey' },
@@ -289,12 +285,10 @@
         function initMap() {
             if (map) return;
 
-            // 地図の境界（世界1枚に固定し、黒い空白エリアへのドラッグを完全防護）
             const southWest = L.latLng(-65, -175);
             const northEast = L.latLng(80, 175);
             const bounds = L.latLngBounds(southWest, northEast);
 
-            // 地図の初期化 (Esri World Dark Gray Base)
             map = L.map('map', {
                 zoomControl: false,
                 attributionControl: false,
@@ -306,29 +300,24 @@
                 bounceAtZoomLimits: false
             });
 
-            // Esri Dark Map Tile (1枚だけ描画・範囲外アクセス遮断)
             L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
                 maxZoom: 16,
                 noWrap: true,
                 bounds: bounds
             }).addTo(map);
 
-            // 画面サイズに世界地図1枚がキレイにフィットするよう調整
             map.fitBounds(bounds, { padding: [0, 0] });
 
-            // マーカーと常時表示吹き出しの配置
             Object.keys(COUNTRIES).forEach(code => {
                 const country = COUNTRIES[code];
                 
                 const iconHtml = `
-                    <div class="flex flex-col items-center cursor-pointer transform -translate-y-1/2">
-                        <!-- 常時表示の楽曲吹き出し -->
+                    <div class="flex flex-col items-center cursor-pointer">
                         <div class="px-2 py-1 rounded-lg bg-zinc-900/95 border border-spotify-green text-[10px] font-bold text-white shadow-xl mb-1 whitespace-nowrap flex items-center space-x-1 backdrop-blur-md">
                             <span>${country.flag}</span>
                             <span class="text-spotify-green font-extrabold">1位:</span>
                             <span class="truncate max-w-[90px]">${escapeHtml(country.topSong)}</span>
                         </div>
-                        <!-- ピンマーク -->
                         <div class="w-6 h-6 rounded-full bg-spotify-green/30 border-2 border-spotify-green pulse-glow-pin flex items-center justify-center">
                             <div class="w-2.5 h-2.5 rounded-full bg-spotify-green"></div>
                         </div>
@@ -338,8 +327,8 @@
                 const customIcon = L.divIcon({
                     html: iconHtml,
                     className: '',
-                    iconSize: [120, 60],
-                    iconAnchor: [60, 50]
+                    iconSize: [120, 50],
+                    iconAnchor: [60, 45]
                 });
 
                 const marker = L.marker(country.coords, { icon: customIcon });
@@ -349,13 +338,11 @@
 
                 markersMap[code] = marker;
 
-                // 初期状態は主要3カ国のみ表示
                 if (country.primary) {
                     marker.addTo(map);
                 }
             });
 
-            // ズームレベルに応じてその他の国を表示・非表示
             map.on('zoomend', () => {
                 const currentZoom = map.getZoom();
                 Object.keys(COUNTRIES).forEach(code => {
@@ -371,14 +358,16 @@
                 });
             });
 
-            requestAnimationFrame(() => {
-                setTimeout(() => {
+            // ResizeObserverによるコンテナサイズ監視（地図崩れ防止）
+            const wrapper = document.getElementById('map-wrapper');
+            if (window.ResizeObserver && wrapper) {
+                const observer = new ResizeObserver(() => {
                     if (map) {
                         map.invalidateSize();
-                        map.fitBounds(bounds, { padding: [0, 0] });
                     }
-                }, 300);
-            });
+                });
+                observer.observe(wrapper);
+            }
         }
 
         async function fetchChart(countryCode, chartType = 'daily', displayTitle = '') {
@@ -414,7 +403,6 @@
                 console.warn('API connection notice (preview mode active):', e);
             }
 
-            // プレビューおよび通信失敗時のフォールバック表示
             renderFallbackTracks(countryCode);
         }
 
@@ -439,4 +427,6 @@
         }
 
         function renderTracks(tracks) {
-            const container = doc
+            const container = document.getElementById('song-list-container');
+            container.innerHTML = tracks.map((t, idx) => {
+        
