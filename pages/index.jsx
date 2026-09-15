@@ -26,6 +26,9 @@ export default function Home() {
     let map = null;
     let currentPlaylistIdx = 0;
     let playlistTimer = null;
+    // 「今聴かれている曲」は国ごとに1回だけ取得し、吹き出しとランキング両方でこの結果を使い回す
+    // (別々に取得すると、Spotify検索結果のわずかな揺れで吹き出しとランキングの1位がズレるため)
+    const nowChartCache = {};
 
     const openSheet = () => document.getElementById('ranking-sheet')?.classList.replace('closed', 'open');
     const closeSheet = () => document.getElementById('ranking-sheet')?.classList.replace('open', 'closed');
@@ -162,14 +165,24 @@ export default function Home() {
 
     async function preloadTopSongs() {
       // 8カ国を同時に送ると相手側のレート制限に引っかかりやすいため、
-      // 1件ずつ少し間隔をあけて順番に送信する
+      // 1件ずつ少し間隔をあけて順番に送信する。
+      // ここで10位まで丸ごと取得してキャッシュしておき、吹き出しにもランキング表示にも
+      // 同じデータを使い回すことで、吹き出しの1位とランキングの1位がズレないようにする。
       const codes = Object.keys(COUNTRIES);
       for (const code of codes) {
         try {
-          const res = await fetch(`/api/chart?country=${code}&chartType=now&limit=1`);
+          const res = await fetch(`/api/chart?country=${code}&chartType=now&limit=10`);
           if (res.ok) {
             const data = await res.json();
-            if (data.tracks?.[0]) updateBubbleSong(code, data.tracks[0].title);
+            if (data.tracks?.length) {
+              const tracksWithMeta = data.tracks.map((t) => ({
+                ...t,
+                source: t.source || data.source,
+                debugDetail: t.debugDetail || data.debugDetail,
+              }));
+              nowChartCache[code] = tracksWithMeta;
+              updateBubbleSong(code, tracksWithMeta[0].title);
+            }
           }
         } catch (e) {}
         await new Promise((resolve) => setTimeout(resolve, 400));
@@ -195,6 +208,13 @@ export default function Home() {
         container.innerHTML = `<div class="flex items-center justify-center py-12 space-x-2"><div class="w-6 h-6 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div><span class="text-xs text-zinc-400">取得中...</span></div>`;
       }
 
+      // 「今聴かれている曲」は、吹き出し用に既に取得済みのキャッシュがあればそれをそのまま使う
+      // (再取得すると吹き出しの1位とズレる可能性があるため)
+      if (chartType === 'now' && nowChartCache[code]) {
+        renderTracks(nowChartCache[code]);
+        return;
+      }
+
       try {
         const res = await fetch(`/api/chart?country=${code}&chartType=${chartType}&limit=${limit}`);
         if (res.ok) {
@@ -205,7 +225,10 @@ export default function Home() {
               source: t.source || data.source,
               debugDetail: t.debugDetail || data.debugDetail,
             }));
-            if (chartType === 'now') updateBubbleSong(code, tracksWithMeta[0].title);
+            if (chartType === 'now') {
+              nowChartCache[code] = tracksWithMeta;
+              updateBubbleSong(code, tracksWithMeta[0].title);
+            }
             renderTracks(tracksWithMeta);
             return;
           }
