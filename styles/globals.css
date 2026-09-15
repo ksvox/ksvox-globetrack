@@ -1,0 +1,104 @@
+body, html {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  background: #121212;
+  -webkit-tap-highlight-color: transparent;
+}
+#map-wrapper {
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 250px;
+  background: #121212;
+  overflow: hidden;
+}
+#map {
+  width: 100%;
+  height: 100%;
+  background: #121212;
+}
+.leaflet-container {
+  background: #121212 !important;
+}
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 45s linear infinite;
+}
+.animate-marquee a {
+  color: #f4f4f5;
+  text-decoration: underline;
+  text-decoration-color: #1db954;
+}
+@keyframes pulse-glow {
+  0%,
+  100% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+.pulse-glow-pin {
+  animation: pulse-glow 2.2s infinite ease-in-out;
+}
+.bottom-sheet {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+  z-index: 1000 !important;
+}
+.bottom-sheet.closed {
+  transform: translateY(105%) !important;
+}
+.bottom-sheet.open {
+  transform: translateY(0) !important;
+}
+.rank-1 {
+  background: linear-gradient(135deg, #ffd700, #ffa500);
+  color: #000;
+  font-weight: 800;
+}
+.rank-2 {
+  background: linear-gradient(135deg, #e0e0e0, #9e9e9e);
+  color: #000;
+  font-weight: 800;
+}
+.rank-3 {
+  background: linear-gradient(135deg, #cd7f32, #8b4513);
+  color: #fff;
+  font-weight: 800;
+}
+.rank-other {
+  background: #282828;
+  color: #b3b3b3;
+}
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+.speech-bubble {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+}
+.playlist-scroll::-webkit-scrollbar {
+  display: none;
+}
+.playlist-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
