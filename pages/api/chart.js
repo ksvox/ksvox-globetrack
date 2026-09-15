@@ -55,7 +55,7 @@ export default async function handler(req, res) {
               (item['im:name']?.label || '') + ' ' + (item['im:artist']?.label || '')
             )}`,
         }));
-        return res.status(200).json({ country: countryCode, tracks });
+        return res.status(200).json({ country: countryCode, tracks, source: 'billboard-itunes' });
       }
     } catch (e) {
       console.warn('Billboard RSS connect notice:', e);
@@ -63,10 +63,13 @@ export default async function handler(req, res) {
   }
 
   // --- 地図上の「今聴かれている曲」取得 ---
+  let debugDetail = '';
   try {
     const token = await getSpotifyToken();
 
-    if (token) {
+    if (!token) {
+      debugDetail = 'トークン取得失敗(Client ID/Secret未設定または認証エラー)';
+    } else {
       const spotifyRes = await fetch(
         `https://api.spotify.com/v1/search?q=genre%3Apop&type=track&market=${countryCode}&limit=${maxLimit}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -82,16 +85,22 @@ export default async function handler(req, res) {
           url: item.external_urls.spotify,
         }));
 
-        return res.status(200).json({ country: countryCode, tracks });
+        return res.status(200).json({ country: countryCode, tracks, source: 'spotify' });
       }
+      debugDetail = `Spotify検索API status:${spotifyRes.status}`;
+      try {
+        const errBody = await spotifyRes.text();
+        debugDetail += ` body:${errBody.slice(0, 150)}`;
+      } catch (e2) {}
     }
   } catch (e) {
     console.warn('Spotify API connect notice:', e);
+    debugDetail = `例外発生: ${String(e && e.message ? e.message : e)}`;
   }
 
   // フォールバック
   const fallbackTracks = generateFallbackData(countryCode, chartType, maxLimit);
-  return res.status(200).json({ country: countryCode, tracks: fallbackTracks });
+  return res.status(200).json({ country: countryCode, tracks: fallbackTracks, source: 'fallback', debugDetail });
 }
 
 function generateFallbackData(country, chartType, limit) {
