@@ -161,7 +161,10 @@ export default function Home() {
     }
 
     async function preloadTopSongs() {
-      Object.keys(COUNTRIES).forEach(async (code) => {
+      // 8カ国を同時に送ると相手側のレート制限に引っかかりやすいため、
+      // 1件ずつ少し間隔をあけて順番に送信する
+      const codes = Object.keys(COUNTRIES);
+      for (const code of codes) {
         try {
           const res = await fetch(`/api/chart?country=${code}&chartType=now&limit=1`);
           if (res.ok) {
@@ -169,7 +172,8 @@ export default function Home() {
             if (data.tracks?.[0]) updateBubbleSong(code, data.tracks[0].title);
           }
         } catch (e) {}
-      });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
     }
 
     function updateBubbleSong(code, title) {
