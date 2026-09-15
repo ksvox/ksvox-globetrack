@@ -8,6 +8,12 @@ body, html {
   background: #121212;
   -webkit-tap-highlight-color: transparent;
 }
+/* Next.jsがページ全体を包む#__next要素にも高さ100%を明示しないと、
+   内部のflex/h-full指定による高さの連鎖が途切れてしまうため必須 */
+#__next {
+  height: 100%;
+  width: 100%;
+}
 #map-wrapper {
   position: relative;
   width: 100%;
