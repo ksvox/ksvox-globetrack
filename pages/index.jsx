@@ -196,8 +196,13 @@ export default function Home() {
         if (res.ok) {
           const data = await res.json();
           if (data.tracks?.length) {
-            if (chartType === 'now') updateBubbleSong(code, data.tracks[0].title);
-            renderTracks(data.tracks);
+            const tracksWithMeta = data.tracks.map((t) => ({
+              ...t,
+              source: t.source || data.source,
+              debugDetail: t.debugDetail || data.debugDetail,
+            }));
+            if (chartType === 'now') updateBubbleSong(code, tracksWithMeta[0].title);
+            renderTracks(tracksWithMeta);
             return;
           }
         }
@@ -224,6 +229,13 @@ export default function Home() {
                         <div class="min-w-0 flex-1">
                             <h4 class="text-xs font-bold text-white truncate">${escapeHtml(t.title)}</h4>
                             <p class="text-[11px] text-zinc-400 truncate">${escapeHtml(t.artist)}</p>
+                            ${
+                              t.source && t.source !== 'spotify'
+                                ? `<p class="text-[9px] text-amber-400 truncate">[${escapeHtml(t.source)}] ${escapeHtml(
+                                    t.debugDetail || ''
+                                  )}</p>`
+                                : ''
+                            }
                         </div>
                     </div>
                     <a href="${t.url}" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-full bg-spotify-green/20 text-spotify-green hover:bg-spotify-green hover:text-black transition-colors flex items-center justify-center text-xs ml-2 shrink-0">
