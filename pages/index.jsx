@@ -244,9 +244,35 @@ export default function Home() {
     };
     window.addEventListener('resize', onResize);
 
-    initPlaylists();
-    initMap();
-    fetchMusicNews();
+    // Leaflet(外部CDNスクリプト)の読み込みが完全に終わるまで待ってから初期化する。
+    // 既にページ読み込みが完了している場合は即座に、まだの場合はloadイベントを待つ。
+    // 念のため、window.Lがまだ無い場合は少し待って再試行する保険もかけておく。
+    function waitForLeafletThenInit() {
+      let attempts = 0;
+      const tryInit = () => {
+        if (typeof window.L !== 'undefined') {
+          initPlaylists();
+          initMap();
+          fetchMusicNews();
+          return;
+        }
+        attempts++;
+        if (attempts < 50) {
+          setTimeout(tryInit, 100);
+        } else {
+          console.warn('Leafletの読み込みに失敗しました');
+          initPlaylists();
+          fetchMusicNews();
+        }
+      };
+      tryInit();
+    }
+
+    if (document.readyState === 'complete') {
+      waitForLeafletThenInit();
+    } else {
+      window.addEventListener('load', waitForLeafletThenInit, { once: true });
+    }
 
     return () => {
       window.removeEventListener('resize', onResize);
