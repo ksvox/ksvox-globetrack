@@ -336,7 +336,11 @@ export default function Home() {
 
       <div className="flex flex-col h-full w-full max-w-md mx-auto relative bg-spotify-black border-x border-zinc-900 shadow-2xl overflow-hidden">
         {/* Header */}
-        <header className="pt-3 px-4 pb-2 bg-black/90 z-20 flex flex-col space-y-0.5 shrink-0 border-b border-zinc-800/60">
+         <header
+  　　　　className="pt-3 px-4 pb-2 z-20 flex items-center space-x-2.5 shrink-0 border-b border-zinc-800/60"
+  　　　　style={{ backgroundColor: '#252832' }}
+　　　　　 >  
+          <img src="/logo.png" alt="GlobeTrack Logo" className="w-11 h-11 object-contain flex-shrink-0" />
           <div className="flex items-center space-x-1.5 text-spotify-green">
             <i className="fa-solid fa-globe text-xs"></i>
             <span className="text-[11px] font-bold tracking-wider uppercase">WORLD MUSIC CHART</span>
