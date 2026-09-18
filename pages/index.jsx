@@ -336,17 +336,21 @@ export default function Home() {
 
       <div className="flex flex-col h-full w-full max-w-md mx-auto relative bg-spotify-black border-x border-zinc-900 shadow-2xl overflow-hidden">
         {/* Header */}
-         <header
-  　　　　className="pt-3 px-4 pb-2 z-20 flex items-center space-x-2.5 shrink-0 border-b border-zinc-800/60"
-  　　　　style={{ backgroundColor: '#252832' }}
-　　　　　 >  
-          <img src="/logo.png" alt="GlobeTrack Logo" className="w-11 h-11 object-contain flex-shrink-0" />
-          <div className="flex items-center space-x-1.5 text-spotify-green">
-            <i className="fa-solid fa-globe text-xs"></i>
-            <span className="text-[11px] font-bold tracking-wider uppercase">WORLD MUSIC CHART</span>
+        <header
+          className="pt-3 px-4 pb-2 z-20 flex items-center space-x-2.5 shrink-0 border-b border-zinc-800/60"
+          style={{ backgroundColor: '#252832' }}
+        >
+          <div className="flex flex-col space-y-0.5 min-w-0 w-full">
+            <div className="flex items-center space-x-1.5 text-spotify-green">
+              <i className="fa-solid fa-globe text-xs"></i>
+              <span className="text-[11px] font-bold tracking-wider uppercase">WORLD MUSIC CHART</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <img src="/logo.png" alt="GlobeTrack Logo" className="w-8 h-8 object-contain flex-shrink-0" />
+              <h1 className="text-xl font-extrabold tracking-tight text-white leading-tight">GlobeTrack</h1>
+            </div>
+            <p className="text-xs text-zinc-400 font-medium">世界で&ldquo;今&rdquo;聴かれている曲は？</p>
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-white leading-tight">GlobeTrack</h1>
-          <p className="text-xs text-zinc-400 font-medium">世界で&ldquo;今&rdquo;聴かれている曲は？</p>
         </header>
 
         {/* 国別ランキング20 */}
