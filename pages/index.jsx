@@ -348,8 +348,9 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <img src="/logo.png" alt="GlobeTrack Logo" className="w-8 h-8 object-contain flex-shrink-0" />
               <h1 className="text-xl font-extrabold tracking-tight text-white leading-tight">GlobeTrack</h1>
+              <p className="text-xs text-zinc-400 font-medium">世界で&ldquo;今&rdquo;聴かれている曲は？</p>
             </div>
-            <p className="text-xs text-zinc-400 font-medium">世界で&ldquo;今&rdquo;聴かれている曲は？</p>
+            
           </div>
         </header>
 
