@@ -93,6 +93,13 @@ export default async function handler(req, res) {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
 
   try {
+    // ジャンル集計用:上位100曲のジャンル情報だけを返す(曲名などは送らず軽くする)
+    if (req.query.genres) {
+      const tracks = await getCountryChart(country, 100);
+      if (tracks.length) res.setHeader('Cache-Control', 's-maxage=28800, stale-while-revalidate=3600');
+      return res.status(200).json({ country, count: tracks.length, genres: tracks.map((t) => t.genres || []) });
+    }
+
     if (country === 'ALL') {
       const charts = {};
       const lists = await Promise.all(MAP_COUNTRIES.map((cc) => getCountryChart(cc, limit).catch(() => [])));

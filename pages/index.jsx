@@ -87,19 +87,54 @@ export default function Home() {
       return list[0]?.name || 'その他';
     }
 
-    // その国のランキングで多いジャンル上位3つ
-    function genreSummary(tracks) {
+    // ジャンル上位3つ+その他(パーセント表示)。items は「genres を持つ曲」の配列
+    function genreSummary(items) {
       const counts = {};
-      (tracks || []).slice(0, 10).forEach((t) => {
+      (items || []).forEach((t) => {
         const g = trackGenre(t);
         counts[g] = (counts[g] || 0) + 1;
       });
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
-      const top = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([name, n], i) => ({ name, n, color: GENRE_COLORS[i] }));
-      return { top, total };
+      if (!total) return { top: [], other: 0, total: 0 };
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const top = sorted.slice(0, 3).map(([name, n], i) => ({ name, pct: Math.round((n / total) * 100), color: GENRE_COLORS[i] }));
+      const other = sorted.length > 3 ? Math.max(0, 100 - top.reduce((a, g) => a + g.pct, 0)) : 0;
+      return { top, other, total };
+    }
+
+    // 上位100曲のジャンル情報(国ごとに保存・二重取得しない)
+    const genreCache = {};
+    const genreInflight = {};
+    function loadGenres(code) {
+      if (genreCache[code]) return Promise.resolve(genreCache[code]);
+      if (genreInflight[code]) return genreInflight[code];
+      genreInflight[code] = (async () => {
+        for (const w of [0, 1500]) {
+          if (w) await sleep(w);
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10000);
+          try {
+            const res = await fetch(`/api/chart?country=${code}&genres=1`, { signal: controller.signal });
+            if (res.ok) {
+              const data = await res.json();
+              const items = (data.genres || []).map((g) => ({ genres: g }));
+              // ジャンル情報がきちんと入っている時だけ採用
+              if (items.length && items.some((it) => it.genres.length)) {
+                genreCache[code] = items;
+                return items;
+              }
+            }
+          } catch (e) {
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+        // 取れなければ、表示中のTop10で代用
+        return (nowChartCache[code] || []).filter((t) => t.genres && t.genres.length);
+      })().finally(() => {
+        delete genreInflight[code];
+      });
+      return genreInflight[code];
     }
 
     function localTime(tz) {
@@ -124,16 +159,29 @@ export default function Home() {
       });
     }, 20000);
 
-    function genreHtml(tracks) {
-      if (!tracks || !tracks.length) return `<div class="text-[11px] text-zinc-500">集計中…</div>`;
-      const { top, total } = genreSummary(tracks);
-      const bar = top
-        .map((g) => `<div style="width:${(g.n / total) * 100}%;background:${g.color}"></div>`)
-        .join('');
-      const legend = top
-        .map((g) => `<span class="mr-2.5 whitespace-nowrap"><span style="color:${g.color}">●</span> ${escapeHtml(g.name)} ${g.n}曲</span>`)
-        .join('');
+    function genreHtml(items) {
+      const { top, other, total } = genreSummary(items);
+      if (!total) return `<div class="text-[11px] text-zinc-500">集計中…</div>`;
+      const seg = [...top.map((g) => ({ w: g.pct, color: g.color })), ...(other ? [{ w: other, color: '#52525b' }] : [])];
+      const bar = seg.map((x) => `<div style="width:${x.w}%;background:${x.color}"></div>`).join('');
+      const legend =
+        top
+          .map((g) => `<span class="mr-2.5 whitespace-nowrap"><span style="color:${g.color}">●</span> ${escapeHtml(g.name)} ${g.pct}%</span>`)
+          .join('') + (other ? `<span class="mr-2.5 whitespace-nowrap"><span style="color:#71717a">●</span> その他 ${other}%</span>` : '');
       return `<div class="flex h-2.5 rounded-full overflow-hidden bg-zinc-800">${bar}</div><div class="mt-1.5 text-[11px] text-zinc-300 flex flex-wrap">${legend}</div>`;
+    }
+
+    // プロフィールのジャンル欄を、上位100曲の集計で埋める
+    function fillProfileGenre(code) {
+      const el = document.getElementById('profile-genre');
+      if (el && genreCache[code]) {
+        el.innerHTML = genreHtml(genreCache[code]);
+        return;
+      }
+      loadGenres(code).then((items) => {
+        const box = document.getElementById('profile-genre');
+        if (box && box.dataset.code === code && items.length) box.innerHTML = genreHtml(items);
+      });
     }
 
     // 国別プロフィールカード(ランキング画面の上部)
@@ -159,7 +207,7 @@ export default function Home() {
           </div>
           <div class="mt-3">
             <div class="text-[11px] text-zinc-400 mb-1.5">今流行っているジャンル</div>
-            ${genreHtml(tracks)}
+            <div id="profile-genre" data-code="${code}">${genreCache[code] ? genreHtml(genreCache[code]) : '<div class="text-[11px] text-zinc-500">集計中…</div>'}</div>
           </div>
         </div>
         <div class="pt-2 pb-0.5 text-[11px] font-bold text-zinc-400">${c.flag} 今聴かれている曲 Top 10</div>`;
@@ -466,6 +514,7 @@ export default function Home() {
         container.innerHTML = profile + `<div class="flex flex-col items-center justify-center py-12 space-y-3"><div class="w-7 h-7 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-zinc-300 font-bold text-center leading-relaxed">只今最新情報を取得中…<br><span class="text-zinc-400 font-medium">少しだけお待ちください</span></p></div>`;
       }
 
+      if (mode === 'now') fillProfileGenre(code);
       lastRequest = [code, mode, displayTitle, limit];
 
       let tracks = [];
@@ -529,6 +578,7 @@ export default function Home() {
         })
         .join('');
 
+      if (currentMode === 'now') fillProfileGenre(currentCountryCode);
       prefetchPreviews(tracks, currentCountryCode);
     }
 
@@ -791,11 +841,16 @@ export default function Home() {
       setSelected(code);
       if (map) map.flyTo(c.coords, TOUR_ZOOM[code] || 4, { duration: 1.6 });
 
+      // ジャンル(上位100曲の集計)は並行して取得
+      loadGenres(code).then((items) => {
+        if (token !== tourToken) return;
+        const { top } = genreSummary(items);
+        if ($('tour-genre')) $('tour-genre').textContent = top.length ? top.map((g) => g.name).join('・') + ' が人気' : '';
+      });
+
       const tracks = await loadCountry(code);
       if (token !== tourToken || !touring) return;
 
-      const { top } = genreSummary(tracks);
-      if ($('tour-genre')) $('tour-genre').textContent = top.length ? top.map((g) => g.name).join('・') + ' が人気' : '';
 
       const t = tracks[0];
       if (!t) {
