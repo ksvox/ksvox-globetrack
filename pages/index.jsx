@@ -42,6 +42,8 @@ export default function Home() {
     let currentTracks = [];
     let currentCountryCode = 'US';
     let currentMode = 'now';
+    // 「もう一度読み込む」用に、直前に開いた内容を覚えておく
+    let lastRequest = null;
 
     // 試聴プレーヤー(1つだけを使い回す)
     const audio = new Audio();
@@ -200,32 +202,59 @@ export default function Home() {
       }
     }
 
-    function preloadTopSongs() {
-      loadedCount = 0;
-      updateProgress();
-      Object.keys(COUNTRIES).forEach(async (code) => {
+    // ---------- ランキング取得(自動リトライ付き) ----------
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // 失敗しても1秒・2秒と間をあけて、最大3回まで取りに行く
+    async function fetchTracksWithRetry(code, limit) {
+      const waits = [0, 1000, 2000];
+      for (const w of waits) {
+        if (w) await sleep(w);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10000);
         try {
-          const res = await fetch(`/api/chart?country=${code}&limit=10`, { signal: controller.signal });
+          const res = await fetch(`/api/chart?country=${code}&limit=${limit}`, { signal: controller.signal });
           if (res.ok) {
             const data = await res.json();
-            const tracks = data.tracks || [];
-            if (tracks.length) {
-              nowChartCache[code] = tracks;
-              updateBubbleSong(code, tracks[0].title);
-              // その国のランキングを「取得中」で開いていたら、すぐ表示する
-              if (currentCountryCode === code && currentMode === 'now' && !currentTracks.length) renderTracks(tracks);
-              return;
-            }
+            if (data.tracks?.length) return data.tracks;
           }
         } catch (e) {
         } finally {
           clearTimeout(timer);
+        }
+      }
+      return [];
+    }
+
+    // 地図の国のTop10。同じ国を二重に取りに行かないよう、取得中ならその結果を待つ
+    const inflight = {};
+    function loadCountry(code) {
+      if (nowChartCache[code]) return Promise.resolve(nowChartCache[code]);
+      if (inflight[code]) return inflight[code];
+      inflight[code] = fetchTracksWithRetry(code, 10)
+        .then((tracks) => {
+          if (tracks.length) {
+            nowChartCache[code] = tracks;
+            updateBubbleSong(code, tracks[0].title);
+          } else if (!nowChartCache[code]) {
+            updateBubbleSong(code, '—');
+          }
+          return tracks;
+        })
+        .finally(() => {
+          delete inflight[code];
+        });
+      return inflight[code];
+    }
+
+    function preloadTopSongs() {
+      loadedCount = 0;
+      updateProgress();
+      Object.keys(COUNTRIES).forEach((code) => {
+        loadCountry(code).finally(() => {
           loadedCount++;
           updateProgress();
-        }
-        if (!nowChartCache[code]) updateBubbleSong(code, '—');
+        });
       });
     }
 
@@ -276,29 +305,25 @@ export default function Home() {
         container.innerHTML = `<div class="flex flex-col items-center justify-center py-12 space-y-3"><div class="w-7 h-7 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-zinc-300 font-bold text-center leading-relaxed">只今最新情報を取得中…<br><span class="text-zinc-400 font-medium">少しだけお待ちください</span></p></div>`;
       }
 
-      if (mode === 'now' && nowChartCache[code]) {
-        renderTracks(nowChartCache[code]);
+      lastRequest = [code, mode, displayTitle, limit];
+
+      let tracks = [];
+      if (mode === 'now') {
+        tracks = await loadCountry(code);
+      } else {
+        tracks = await fetchTracksWithRetry(code, limit);
+      }
+
+      // 取得中に別の国が開かれていたら表示しない
+      if (currentCountryCode !== code || currentMode !== mode) return;
+
+      if (tracks.length) {
+        renderTracks(tracks);
         return;
       }
 
-      try {
-        const res = await fetch(`/api/chart?country=${code}&limit=${limit}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.tracks?.length) {
-            if (mode === 'now') {
-              nowChartCache[code] = data.tracks;
-              updateBubbleSong(code, data.tracks[0].title);
-            }
-            // 取得中に別の国が開かれていたら表示しない
-            if (currentCountryCode === code && currentMode === mode) renderTracks(data.tracks);
-            return;
-          }
-        }
-      } catch (e) {}
-
-      if (container && currentCountryCode === code) {
-        container.innerHTML = `<div class="text-center py-12 text-xs text-zinc-400">ランキングを取得できませんでした。<br>時間をおいて再度お試しください。</div>`;
+      if (container) {
+        container.innerHTML = `<div class="flex flex-col items-center py-12 space-y-3 text-center"><p class="text-xs text-zinc-400 leading-relaxed">ランキングを取得できませんでした。<br>時間をおいて再度お試しください。</p><button type="button" data-action="retry" class="px-4 py-2 rounded-full bg-spotify-green/20 text-spotify-green text-xs font-bold active:scale-95 transition-transform"><i class="fa-solid fa-rotate-right mr-1"></i>もう一度読み込む</button></div>`;
       }
     }
     window.fetchChart = fetchChart;
@@ -413,6 +438,8 @@ export default function Home() {
     const onListClick = (e) => {
       const btn = e.target.closest('[data-action="play"]');
       if (btn) togglePreview(Number(btn.dataset.idx));
+      const retry = e.target.closest('[data-action="retry"]');
+      if (retry && lastRequest) fetchChart(...lastRequest);
     };
     listEl?.addEventListener('click', onListClick);
 
