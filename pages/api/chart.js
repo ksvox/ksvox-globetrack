@@ -1,137 +1,121 @@
 /**
- * World Sound Chart - API Route
- * GET /api/chart?country=US&chartType=daily&limit=10
+ * GlobeTrack Ver2.0 - ランキング取得API
+ * データ元:Apple Music「再生回数ランキング」(Apple公式の公開データ・APIキー不要)
+ *
+ * GET /api/chart?country=US&limit=20   … 1カ国分
+ * GET /api/chart?country=ALL&limit=10  … 地図に出す全カ国分をまとめて
  */
 
-async function getSpotifyToken() {
-  const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+// 地図に表示する国(フロントのCOUNTRIESと揃える)
+const MAP_COUNTRIES = ['US', 'GB', 'FR', 'DE', 'JP', 'KR', 'BR', 'AU', 'IN', 'ZA', 'RU'];
 
-  if (!clientId || !clientSecret) return null;
+// サーバー内の一時保存(30分)。同じデータを何度もAppleに取りに行かないため
+const CACHE_TTL = 30 * 60 * 1000;
+const cache = new Map();
 
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  });
+// Appleのランキングは 10/25/50/100件 単位でしか取れないため、必要数以上の最小単位で取得して切り詰める
+function feedSize(limit) {
+  if (limit <= 10) return 10;
+  if (limit <= 25) return 25;
+  if (limit <= 50) return 50;
+  return 100;
+}
 
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.access_token;
+async function fetchJson(url) {
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (GlobeTrack; ksvox.net)' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
+  return res.json();
+}
+
+// 試聴用の30秒音源URLを、曲IDからまとめて取得
+async function fetchPreviews(ids, cc) {
+  const map = {};
+  if (!ids.length) return map;
+  try {
+    const data = await fetchJson(
+      `https://itunes.apple.com/lookup?id=${ids.join(',')}&country=${cc.toLowerCase()}&entity=song`
+    );
+    (data.results || []).forEach((r) => {
+      if (r.trackId && r.previewUrl) map[String(r.trackId)] = r.previewUrl;
+    });
+  } catch (e) {
+    console.warn('preview lookup notice:', cc, e.message);
+  }
+  return map;
+}
+
+async function getCountryChart(cc, limit) {
+  const size = feedSize(limit);
+  const key = `${cc}-${size}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.ts < CACHE_TTL) return hit.tracks.slice(0, limit);
+
+  const lc = cc.toLowerCase();
+  const urls = [
+    `https://rss.marketingtools.apple.com/api/v2/${lc}/music/most-played/${size}/songs.json`,
+    `https://rss.applemarketingtools.com/api/v2/${lc}/music/most-played/${size}/songs.json`,
+  ];
+
+  let results = null;
+  for (const u of urls) {
+    try {
+      const data = await fetchJson(u);
+      results = data.feed?.results || [];
+      if (results.length) break;
+    } catch (e) {
+      console.warn('chart feed notice:', e.message);
+    }
+  }
+  if (!results || !results.length) {
+    // 取得失敗時、古いデータが残っていればそれを使う
+    if (hit) return hit.tracks.slice(0, limit);
+    return [];
+  }
+
+  const previews = await fetchPreviews(results.map((r) => r.id), cc);
+
+  const tracks = results.map((r, i) => ({
+    rank: i + 1,
+    id: String(r.id),
+    title: r.name || '',
+    artist: r.artistName || '',
+    img: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb', '300x300bb') : null,
+    appleUrl: r.url || null,
+    previewUrl: previews[String(r.id)] || null,
+  }));
+
+  cache.set(key, { ts: Date.now(), tracks });
+  return tracks.slice(0, limit);
 }
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
-
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { country = 'US', chartType = 'daily', limit = 10 } = req.query;
-  const countryCode = String(country).toUpperCase();
-  const maxLimit = parseInt(limit, 10);
+  const country = String(req.query.country || 'US').toUpperCase();
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
 
-  // --- Billboard / iTunes Hot 20 ランキング取得 ---
-  if (chartType === 'billboard') {
-    try {
-      const itunesRes = await fetch(
-        `https://itunes.apple.com/${countryCode.toLowerCase()}/rss/topsongs/limit=${maxLimit}/json`
-      );
-      if (itunesRes.ok) {
-        const itunesData = await itunesRes.json();
-        const entries = itunesData.feed?.entry || [];
-        const tracks = entries.map((item, index) => ({
-          rank: index + 1,
-          title: item['im:name']?.label || '',
-          artist: item['im:artist']?.label || '',
-          img: item['im:image']?.[2]?.label?.replace('170x170bb', '300x300bb') || null,
-          url:
-            item.link?.[0]?.attributes?.href ||
-            `https://open.spotify.com/search/${encodeURIComponent(
-              (item['im:name']?.label || '') + ' ' + (item['im:artist']?.label || '')
-            )}`,
-        }));
-        return res.status(200).json({ country: countryCode, tracks, source: 'billboard-itunes' });
-      }
-    } catch (e) {
-      console.warn('Billboard RSS connect notice:', e);
-    }
-  }
-
-  // --- 地図上の「今聴かれている曲」取得 ---
-  let debugDetail = '';
   try {
-    const token = await getSpotifyToken();
-
-    if (!token) {
-      debugDetail = 'トークン取得失敗(Client ID/Secret未設定または認証エラー)';
-    } else {
-      const spotifyRes = await fetch(
-        `https://api.spotify.com/v1/search?q=genre%3Apop&type=track&market=${countryCode}&limit=${maxLimit}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (spotifyRes.ok) {
-        const spotifyData = await spotifyRes.json();
-        const tracks = spotifyData.tracks.items.map((item, index) => ({
-          rank: index + 1,
-          title: item.name,
-          artist: item.artists.map((a) => a.name).join(', '),
-          img: item.album.images[0]?.url || null,
-          url: item.external_urls.spotify,
-        }));
-
-        return res.status(200).json({ country: countryCode, tracks, source: 'spotify' });
+    if (country === 'ALL') {
+      const charts = {};
+      // 一度に全部送ると相手側の制限に引っかかりやすいので、4カ国ずつ取得
+      for (let i = 0; i < MAP_COUNTRIES.length; i += 4) {
+        const group = MAP_COUNTRIES.slice(i, i + 4);
+        const lists = await Promise.all(group.map((cc) => getCountryChart(cc, limit).catch(() => [])));
+        group.forEach((cc, j) => {
+          charts[cc] = lists[j];
+        });
       }
-      debugDetail = `Spotify検索API status:${spotifyRes.status}`;
-      try {
-        const errBody = await spotifyRes.text();
-        debugDetail += ` body:${errBody.slice(0, 150)}`;
-      } catch (e2) {}
+      res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
+      return res.status(200).json({ charts });
     }
+
+    const tracks = await getCountryChart(country, limit);
+    if (tracks.length) res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
+    return res.status(200).json({ country, tracks });
   } catch (e) {
-    console.warn('Spotify API connect notice:', e);
-    debugDetail = `例外発生: ${String(e && e.message ? e.message : e)}`;
+    console.warn('chart handler notice:', e);
+    return res.status(200).json({ country, tracks: [] });
   }
-
-  // フォールバック
-  const fallbackTracks = generateFallbackData(countryCode, chartType, maxLimit);
-  return res.status(200).json({ country: countryCode, tracks: fallbackTracks, source: 'fallback', debugDetail });
-}
-
-function generateFallbackData(country, chartType, limit) {
-  const songs = [
-    { title: 'Birds of a Feather', artist: 'Billie Eilish' },
-    { title: 'Espresso', artist: 'Sabrina Carpenter' },
-    { title: 'A Bar Song (Tipsy)', artist: 'Shaboozey' },
-    { title: 'Not Like Us', artist: 'Kendrick Lamar' },
-    { title: 'Please Please Please', artist: 'Sabrina Carpenter' },
-    { title: 'Good Luck, Babe!', artist: 'Chappell Roan' },
-    { title: 'I Had Some Help', artist: 'Post Malone' },
-    { title: 'Lose Control', artist: 'Teddy Swims' },
-    { title: 'Too Sweet', artist: 'Hozier' },
-    { title: 'Beautiful Things', artist: 'Benson Boone' },
-    { title: 'ライラック', artist: 'Mrs. GREEN APPLE' },
-    { title: 'Bling-Bang-Bang-Born', artist: 'Creepy Nuts' },
-    { title: '晩餐歌', artist: 'tuki.' },
-    { title: '幾億光年', artist: 'Omoinotake' },
-    { title: 'Supernova', artist: 'aespa' },
-    { title: 'How Sweet', artist: 'NewJeans' },
-    { title: 'Magnetic', artist: 'ILLIT' },
-    { title: 'SPOT!', artist: 'ZICO ft. JENNIE' },
-    { title: '360', artist: 'Charli xcx' },
-    { title: 'Houdini', artist: 'Dua Lipa' },
-  ];
-
-  return songs.slice(0, limit).map((s, i) => ({
-    rank: i + 1,
-    title: s.title,
-    artist: s.artist,
-    img: null,
-    url: `https://open.spotify.com/search/${encodeURIComponent(s.title + ' ' + s.artist)}`,
-  }));
 }
