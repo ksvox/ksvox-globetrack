@@ -9,8 +9,8 @@
 // 地図に表示する国(フロントのCOUNTRIESと揃える)
 const MAP_COUNTRIES = ['US', 'GB', 'FR', 'DE', 'JP', 'KR', 'BR', 'AU', 'IN', 'ZA', 'RU'];
 
-// サーバー内の一時保存(30分)。同じデータを何度もAppleに取りに行かないため
-const CACHE_TTL = 30 * 60 * 1000;
+// サーバー内の一時保存(8時間)。Appleのランキングは1日1回程度の更新のため、8時間ごとに取り直せば十分
+const CACHE_TTL = 8 * 60 * 60 * 1000;
 const cache = new Map();
 
 // Appleのランキングは 10/25/50/100件 単位でしか取れないため、必要数以上の最小単位で取得して切り詰める
@@ -95,12 +95,12 @@ export default async function handler(req, res) {
       MAP_COUNTRIES.forEach((cc, j) => {
         charts[cc] = lists[j];
       });
-      res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
+      res.setHeader('Cache-Control', 's-maxage=28800, stale-while-revalidate=3600');
       return res.status(200).json({ charts });
     }
 
     const tracks = await getCountryChart(country, limit);
-    if (tracks.length) res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
+    if (tracks.length) res.setHeader('Cache-Control', 's-maxage=28800, stale-while-revalidate=3600');
     return res.status(200).json({ country, tracks });
   } catch (e) {
     console.warn('chart handler notice:', e);
