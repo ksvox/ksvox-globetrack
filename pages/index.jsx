@@ -180,23 +180,30 @@ export default function Home() {
       preloadTopSongs();
     }
 
-    // 全カ国のTop10を1回でまとめて取得(サーバー側で30分保存されるので軽い)
-    async function preloadTopSongs() {
-      try {
-        const res = await fetch('/api/chart?country=ALL&limit=10');
-        if (res.ok) {
-          const data = await res.json();
-          Object.keys(data.charts || {}).forEach((code) => {
-            const tracks = data.charts[code] || [];
+    // 全カ国を一斉に取りに行き、届いた国から順に吹き出しへ表示する(全部そろうのを待たない)
+    function preloadTopSongs() {
+      Object.keys(COUNTRIES).forEach(async (code) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        try {
+          const res = await fetch(`/api/chart?country=${code}&limit=10`, { signal: controller.signal });
+          if (res.ok) {
+            const data = await res.json();
+            const tracks = data.tracks || [];
             if (tracks.length) {
               nowChartCache[code] = tracks;
               updateBubbleSong(code, tracks[0].title);
-            } else {
-              updateBubbleSong(code, '—');
+              // その国のランキングを「取得中」で開いていたら、すぐ表示する
+              if (currentCountryCode === code && currentMode === 'now' && !currentTracks.length) renderTracks(tracks);
+              return;
             }
-          });
+          }
+        } catch (e) {
+        } finally {
+          clearTimeout(timer);
         }
-      } catch (e) {}
+        if (!nowChartCache[code]) updateBubbleSong(code, '—');
+      });
     }
 
     function updateBubbleSong(code, title) {
@@ -311,6 +318,22 @@ export default function Home() {
                 </div>`;
         })
         .join('');
+
+      prefetchPreviews(tracks, currentCountryCode);
+    }
+
+    // ランキングを開いたら、裏で試聴音源の場所をまとめて取得しておく(▶を押した時すぐ鳴るように)
+    async function prefetchPreviews(tracks, code) {
+      const need = tracks.filter((t) => !t.previewUrl && t.id);
+      if (!need.length) return;
+      try {
+        const r = await fetch(`/api/preview?ids=${need.map((t) => t.id).join(',')}&country=${code}`);
+        if (!r.ok) return;
+        const previews = (await r.json()).previews || {};
+        need.forEach((t) => {
+          if (previews[t.id]) t.previewUrl = previews[t.id];
+        });
+      } catch (e) {}
     }
 
     // ---------- 試聴 ----------

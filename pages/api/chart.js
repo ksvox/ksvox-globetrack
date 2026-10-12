@@ -3,7 +3,7 @@
  * データ元:Apple Music「再生回数ランキング」(Apple公式の公開データ・APIキー不要)
  *
  * GET /api/chart?country=US&limit=20   … 1カ国分
- * GET /api/chart?country=ALL&limit=10  … 地図に出す全カ国分をまとめて
+ * GET /api/chart?country=ALL&limit=10  … 地図に出す全カ国分をまとめて(予備)
  */
 
 // 地図に表示する国(フロントのCOUNTRIESと揃える)
@@ -21,27 +21,20 @@ function feedSize(limit) {
   return 100;
 }
 
+// 8秒で見切りをつける(1つの遅れが全体を待たせないように)
 async function fetchJson(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (GlobeTrack; ksvox.net)' } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
-  return res.json();
-}
-
-// 試聴用の30秒音源URLを、曲IDからまとめて取得
-async function fetchPreviews(ids, cc) {
-  const map = {};
-  if (!ids.length) return map;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const data = await fetchJson(
-      `https://itunes.apple.com/lookup?id=${ids.join(',')}&country=${cc.toLowerCase()}&entity=song`
-    );
-    (data.results || []).forEach((r) => {
-      if (r.trackId && r.previewUrl) map[String(r.trackId)] = r.previewUrl;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (GlobeTrack; ksvox.net)' },
+      signal: controller.signal,
     });
-  } catch (e) {
-    console.warn('preview lookup notice:', cc, e.message);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
   }
-  return map;
 }
 
 async function getCountryChart(cc, limit) {
@@ -72,8 +65,7 @@ async function getCountryChart(cc, limit) {
     return [];
   }
 
-  const previews = await fetchPreviews(results.map((r) => r.id), cc);
-
+  // 試聴音源の場所はここでは取らない(ランキングを開いた時に /api/preview で取得)
   const tracks = results.map((r, i) => ({
     rank: i + 1,
     id: String(r.id),
@@ -81,7 +73,7 @@ async function getCountryChart(cc, limit) {
     artist: r.artistName || '',
     img: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb', '300x300bb') : null,
     appleUrl: r.url || null,
-    previewUrl: previews[String(r.id)] || null,
+    previewUrl: null,
   }));
 
   cache.set(key, { ts: Date.now(), tracks });
@@ -99,14 +91,10 @@ export default async function handler(req, res) {
   try {
     if (country === 'ALL') {
       const charts = {};
-      // 一度に全部送ると相手側の制限に引っかかりやすいので、4カ国ずつ取得
-      for (let i = 0; i < MAP_COUNTRIES.length; i += 4) {
-        const group = MAP_COUNTRIES.slice(i, i + 4);
-        const lists = await Promise.all(group.map((cc) => getCountryChart(cc, limit).catch(() => [])));
-        group.forEach((cc, j) => {
-          charts[cc] = lists[j];
-        });
-      }
+      const lists = await Promise.all(MAP_COUNTRIES.map((cc) => getCountryChart(cc, limit).catch(() => [])));
+      MAP_COUNTRIES.forEach((cc, j) => {
+        charts[cc] = lists[j];
+      });
       res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
       return res.status(200).json({ charts });
     }
