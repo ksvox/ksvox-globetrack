@@ -127,3 +127,19 @@ body, html {
 .gt-btn:hover {
   filter: brightness(1.2);
 }
+
+/* Ver2.5:選択中の国の吹き出し・ピン */
+.speech-bubble.gt-selected {
+  background: #1db954 !important;
+  color: #000 !important;
+  border-color: #fff !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 4px 15px rgba(0, 0, 0, 0.7);
+}
+.speech-bubble.gt-selected .text-spotify-green {
+  color: #000 !important;
+}
+.gt-pin.gt-pin-selected {
+  background: #fff !important;
+  border-color: #1db954 !important;
+  box-shadow: 0 0 0 4px rgba(29, 185, 84, 0.45);
+}

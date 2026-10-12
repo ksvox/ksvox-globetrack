@@ -197,7 +197,26 @@ export default function Home() {
     const closeSheet = () => {
       document.getElementById('ranking-sheet')?.classList.replace('open', 'closed');
       stopPreview();
+      // 閉じたら選択表示を解除(世界一周中は今いる国を選択表示のままにする)
+      setSelected(touring ? TOUR_ORDER[tourIdx] : null);
     };
+
+    // ---------- 選択中の国の吹き出しを目立たせる ----------
+    const markers = {};
+    let selectedCode = null;
+    function setSelected(code) {
+      if (selectedCode && selectedCode !== code) {
+        document.getElementById(`bubble-${selectedCode}`)?.classList.remove('gt-selected');
+        document.getElementById(`pin-${selectedCode}`)?.classList.remove('gt-pin-selected');
+        markers[selectedCode]?.setZIndexOffset(0);
+      }
+      selectedCode = code || null;
+      if (selectedCode) {
+        document.getElementById(`bubble-${selectedCode}`)?.classList.add('gt-selected');
+        document.getElementById(`pin-${selectedCode}`)?.classList.add('gt-pin-selected');
+        markers[selectedCode]?.setZIndexOffset(1000);
+      }
+    }
 
     // ---------- 小さなお知らせ表示 ----------
     let toastTimer = null;
@@ -298,16 +317,16 @@ export default function Home() {
         const c = COUNTRIES[code];
         const iconHtml = `
                     <div class="relative flex flex-col items-center cursor-pointer">
-                        <div class="speech-bubble px-2 py-1 rounded-lg bg-zinc-900/95 border border-spotify-green text-[9px] font-bold text-white mb-1 whitespace-nowrap flex items-center space-x-1" style="transform: translate(${c.offsetX}px, ${c.offsetY}px);">
+                        <div id="bubble-${code}" class="speech-bubble px-2 py-1 rounded-lg bg-zinc-900/95 border border-spotify-green text-[9px] font-bold text-white mb-1 whitespace-nowrap flex items-center space-x-1" style="transform: translate(${c.offsetX}px, ${c.offsetY}px);">
                             <span>${c.flag}</span><span class="text-spotify-green font-extrabold">1位:</span>
                             <span id="bubble-song-${code}" class="truncate max-w-[65px]">${escapeHtml(c.topSong)}</span>
                         </div>
-                        <div class="w-5 h-5 rounded-full bg-spotify-green/30 border-2 border-spotify-green pulse-glow-pin flex items-center justify-center -mt-2">
+                        <div id="pin-${code}" class="gt-pin w-5 h-5 rounded-full bg-spotify-green/30 border-2 border-spotify-green pulse-glow-pin flex items-center justify-center -mt-2">
                             <div class="w-2 h-2 rounded-full bg-spotify-green"></div>
                         </div>
                     </div>`;
 
-        L.marker(c.coords, { icon: L.divIcon({ html: iconHtml, className: '', iconSize: [80, 40], iconAnchor: [40, 20] }) })
+        markers[code] = L.marker(c.coords, { icon: L.divIcon({ html: iconHtml, className: '', iconSize: [80, 40], iconAnchor: [40, 20] }) })
           .addTo(map)
           .on('click', () => {
             if (touring) pauseTour();
@@ -427,6 +446,7 @@ export default function Home() {
     async function fetchChart(code, mode = 'now', displayTitle = '', limit = 10) {
       stopPreview();
       const country = COUNTRIES[code] || COUNTRIES.US;
+      setSelected(code);
       currentCountryCode = code;
       currentMode = mode;
       currentTracks = [];
@@ -700,6 +720,7 @@ export default function Home() {
       } catch (e) {}
       const card = $('tour-card');
       if (card) card.style.display = 'none';
+      setSelected(null);
       setTourButton();
       setPauseLabel();
       if (map) map.flyToBounds(DEFAULT_VIEW, { duration: 1.2, padding: [10, 10] });
@@ -767,6 +788,7 @@ export default function Home() {
       if ($('tour-progress')) $('tour-progress').style.width = '0%';
       setTourStatus('読み込み中…');
 
+      setSelected(code);
       if (map) map.flyTo(c.coords, TOUR_ZOOM[code] || 4, { duration: 1.6 });
 
       const tracks = await loadCountry(code);
@@ -951,13 +973,13 @@ export default function Home() {
           <div className="flex flex-col space-y-0.5 min-w-0 w-full">
             <div className="flex items-center space-x-1.5 text-spotify-green">
               <i className="fa-solid fa-globe text-xs"></i>
-              <span className="text-[11px] font-bold tracking-wider uppercase">WORLD MUSIC CHART</span>
+              <span className="text-[11px] font-bold tracking-wider">WORLD MUSIC CHART－音楽で世界を旅しよう！</span>
             </div>
             <div className="flex items-center space-x-2 min-w-0">
               <img src="/logo.png" alt="GlobeTrack Logo" className="w-8 h-8 object-contain flex-shrink-0" />
               <h1 className="text-xl font-extrabold tracking-tight text-white leading-tight shrink-0">GlobeTrack</h1>
               <span className="shrink-0 px-1.5 py-0.5 rounded-md border border-spotify-green/60 bg-spotify-green/15 text-spotify-green text-[9px] font-extrabold tracking-wide leading-none">
-                Ver2.0
+                Ver2.5
               </span>
               <p className="text-xs text-zinc-400 font-medium truncate min-w-0">世界で&ldquo;今&rdquo;聴かれている曲は？</p>
             </div>
