@@ -74,6 +74,10 @@ async function getCountryChart(cc, limit) {
     img: r.artworkUrl100 ? r.artworkUrl100.replace('100x100bb', '300x300bb') : null,
     appleUrl: r.url || null,
     previewUrl: null,
+    // ジャンル(「音楽」という総称は除く)。国別プロフィールの「流行っているジャンル」集計に使う
+    genres: (r.genres || [])
+      .filter((g) => String(g.genreId) !== '34')
+      .map((g) => ({ id: String(g.genreId), name: g.name || '' })),
   }));
 
   cache.set(key, { ts: Date.now(), tracks });

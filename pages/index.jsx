@@ -29,6 +29,142 @@ export default function Home() {
       '4YGN3eQOtBnr82Ag21b3Ia',
     ];
 
+    // ---------- 国別プロフィール(固定情報) ----------
+    const COUNTRY_INFO = {
+      JP: { tz: 'Asia/Tokyo', capital: '東京', lang: '日本語', hello: 'こんにちは', helloNative: '', foods: '寿司/天ぷら/しゃぶしゃぶ' },
+      KR: { tz: 'Asia/Seoul', capital: 'ソウル', lang: '韓国語', hello: 'アンニョンハセヨ', helloNative: '안녕하세요', foods: 'ビビンバ/キムチ/サムギョプサル' },
+      AU: { tz: 'Australia/Sydney', capital: 'キャンベラ', lang: '英語', hello: 'グッダイ', helloNative: "G'day", foods: 'ミートパイ/BBQ/ラミントン' },
+      IN: { tz: 'Asia/Kolkata', capital: 'ニューデリー', lang: 'ヒンディー語・英語 ほか', hello: 'ナマステ', helloNative: 'नमस्ते', foods: 'カレー/ビリヤニ/ナン' },
+      RU: { tz: 'Europe/Moscow', capital: 'モスクワ', lang: 'ロシア語', hello: 'ズドラーストヴィチェ', helloNative: 'Здравствуйте', foods: 'ペリメニ/ピロシキ/ビーフストロガノフ' },
+      ZA: { tz: 'Africa/Johannesburg', capital: 'プレトリア', lang: '英語・ズールー語など12言語', hello: 'サウボナ', helloNative: 'Sawubona', foods: 'ブラーイ/ボボティ/ビルトン' },
+      DE: { tz: 'Europe/Berlin', capital: 'ベルリン', lang: 'ドイツ語', hello: 'グーテン・ターク', helloNative: 'Guten Tag', foods: 'ソーセージ/ザワークラウト/プレッツェル' },
+      FR: { tz: 'Europe/Paris', capital: 'パリ', lang: 'フランス語', hello: 'ボンジュール', helloNative: 'Bonjour', foods: 'ブフ・ブルギニョン/キッシュ/クロワッサン' },
+      GB: { tz: 'Europe/London', capital: 'ロンドン', lang: '英語', hello: 'ハロー', helloNative: 'Hello', foods: 'フィッシュ&チップス/ローストビーフ/スコーン' },
+      BR: { tz: 'America/Sao_Paulo', capital: 'ブラジリア', lang: 'ポルトガル語', hello: 'オラ', helloNative: 'Olá', foods: 'フェイジョアーダ/シュラスコ/ポン・デ・ケージョ' },
+      US: { tz: 'America/New_York', capital: 'ワシントンD.C.', lang: '英語', hello: 'ハーイ', helloNative: 'Hi', foods: 'ハンバーガー/ホットドッグ/BBQリブ' },
+    };
+    // 複数の時間帯がある国は「首都の時刻」と表示
+    const MULTI_TZ = ['US', 'RU', 'AU', 'BR'];
+
+    // 世界一周:日本から東回り
+    const TOUR_ORDER = ['JP', 'KR', 'AU', 'IN', 'RU', 'ZA', 'DE', 'FR', 'GB', 'BR', 'US'];
+    const TOUR_ZOOM = { JP: 5, KR: 5, AU: 3, IN: 4, RU: 3, ZA: 4, DE: 5, FR: 5, GB: 5, BR: 3, US: 3 };
+    const DEFAULT_VIEW = [
+      [-50, -130],
+      [65, 150],
+    ];
+
+    // ジャンル名の日本語化(AppleのジャンルID → 日本語)
+    const GENRE_BY_ID = {
+      14: 'ポップ', 18: 'ヒップホップ', 17: 'ダンス', 7: 'エレクトロ', 21: 'ロック', 20: 'オルタナ', 15: 'R&B',
+      6: 'カントリー', 12: 'ラテン', 16: 'サウンドトラック', 24: 'レゲエ', 27: 'J-POP', 51: 'K-POP', 29: 'アニメ',
+      28: '演歌', 19: 'ワールド', 10: 'シンガーソングライター', 11: 'ジャズ', 5: 'クラシック', 2: 'ブルース',
+      22: 'ゴスペル', 30: 'ブラジル音楽', 1262: 'インド音楽', 1263: 'ボリウッド', 1264: 'インド音楽', 1265: 'インド音楽',
+      1266: 'インド音楽', 1267: 'インド音楽', 1268: 'インド音楽', 1269: 'インド音楽',
+    };
+    // 国ごとのApple表記(英語・ロシア語など)で来た名前の日本語化
+    const GENRE_BY_NAME = {
+      'pop': 'ポップ', 'hip-hop/rap': 'ヒップホップ', 'hip-hop': 'ヒップホップ', 'rap': 'ラップ', 'dance': 'ダンス',
+      'electronic': 'エレクトロ', 'rock': 'ロック', 'alternative': 'オルタナ', 'r&b/soul': 'R&B', 'country': 'カントリー',
+      'latin': 'ラテン', 'soundtrack': 'サウンドトラック', 'reggae': 'レゲエ', 'k-pop': 'K-POP', 'j-pop': 'J-POP',
+      'bollywood': 'ボリウッド', 'indian pop': 'インディアンポップ', 'punjabi': 'パンジャービー', 'indian': 'インド音楽',
+      'amapiano': 'アマピアノ', 'afrobeats': 'アフロビーツ', 'afro house': 'アフロハウス', 'afro-pop': 'アフロポップ',
+      'african': 'アフリカ音楽', 'house': 'ハウス', 'sertanejo': 'セルタネージョ', 'funk': 'ファンキ', 'mpb': 'MPB',
+      'pagode': 'パゴーヂ', 'schlager': 'シュラーガー', 'variété française': 'フレンチポップ', 'rap français': 'フレンチラップ',
+      'поп': 'ポップ', 'хип-хоп': 'ヒップホップ', 'хип-хоп/рэп': 'ヒップホップ', 'рэп': 'ラップ', 'танцевальная': 'ダンス',
+      'электроника': 'エレクトロ', 'рок': 'ロック', 'альтернатива': 'オルタナ', 'хаус': 'ハウス', 'шансон': 'シャンソン',
+      'русский шансон': 'ロシアン・シャンソン', 'r&b/соул': 'R&B',
+    };
+    const GENRE_COLORS = ['#1DB954', '#F5B8D5', '#60a5fa'];
+
+    function trackGenre(t) {
+      const list = t.genres || [];
+      for (const g of list) {
+        const byName = GENRE_BY_NAME[String(g.name || '').toLowerCase()];
+        if (byName) return byName;
+        if (GENRE_BY_ID[g.id]) return GENRE_BY_ID[g.id];
+      }
+      return list[0]?.name || 'その他';
+    }
+
+    // その国のランキングで多いジャンル上位3つ
+    function genreSummary(tracks) {
+      const counts = {};
+      (tracks || []).slice(0, 10).forEach((t) => {
+        const g = trackGenre(t);
+        counts[g] = (counts[g] || 0) + 1;
+      });
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      const top = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, n], i) => ({ name, n, color: GENRE_COLORS[i] }));
+      return { top, total };
+    }
+
+    function localTime(tz) {
+      try {
+        const parts = new Intl.DateTimeFormat('ja-JP', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+        const h = Number(parts.find((p) => p.type === 'hour')?.value || 0);
+        const m = parts.find((p) => p.type === 'minute')?.value || '00';
+        const label = h < 5 ? '深夜' : h < 10 ? '朝' : h < 16 ? '昼' : h < 19 ? '夕方' : '夜';
+        return { hm: `${String(h).padStart(2, '0')}:${m}`, label };
+      } catch (e) {
+        return { hm: '--:--', label: '' };
+      }
+    }
+    const clockHtml = (tz) => {
+      const t = localTime(tz);
+      return `${t.hm} <span class="text-[11px] text-zinc-400 font-medium">${t.label}</span>`;
+    };
+    // 表示中の現地時刻を20秒ごとに更新
+    const clockTimer = setInterval(() => {
+      document.querySelectorAll('.gt-localtime').forEach((el) => {
+        if (el.dataset.tz) el.innerHTML = clockHtml(el.dataset.tz);
+      });
+    }, 20000);
+
+    function genreHtml(tracks) {
+      if (!tracks || !tracks.length) return `<div class="text-[11px] text-zinc-500">集計中…</div>`;
+      const { top, total } = genreSummary(tracks);
+      const bar = top
+        .map((g) => `<div style="width:${(g.n / total) * 100}%;background:${g.color}"></div>`)
+        .join('');
+      const legend = top
+        .map((g) => `<span class="mr-2.5 whitespace-nowrap"><span style="color:${g.color}">●</span> ${escapeHtml(g.name)} ${g.n}曲</span>`)
+        .join('');
+      return `<div class="flex h-2.5 rounded-full overflow-hidden bg-zinc-800">${bar}</div><div class="mt-1.5 text-[11px] text-zinc-300 flex flex-wrap">${legend}</div>`;
+    }
+
+    // 国別プロフィールカード(ランキング画面の上部)
+    function profileHtml(code, tracks) {
+      const c = COUNTRIES[code];
+      const info = COUNTRY_INFO[code];
+      if (!c || !info) return '';
+      const timeTitle = MULTI_TZ.includes(code) ? '現地時間(首都)' : '現地時間';
+      return `
+        <div class="rounded-2xl bg-zinc-900 border border-zinc-800 p-3.5 mb-1">
+          <div class="flex items-baseline justify-between mb-2">
+            <span class="text-[11px] text-zinc-400"><i class="fa-regular fa-clock mr-1"></i>${timeTitle}</span>
+            <span class="gt-localtime text-xl font-extrabold text-white" data-tz="${info.tz}">${clockHtml(info.tz)}</span>
+          </div>
+          <div class="mb-3">
+            <span class="text-base font-extrabold" style="color:#F5B8D5">${escapeHtml(info.hello)}!</span>
+            ${info.helloNative ? `<span class="ml-1.5 text-[11px] text-zinc-400">${escapeHtml(info.helloNative)}</span>` : ''}
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+            <div class="rounded-lg bg-zinc-800/80 px-2.5 py-1.5"><div class="text-zinc-400">首都</div><div class="text-white font-bold">${escapeHtml(info.capital)}</div></div>
+            <div class="rounded-lg bg-zinc-800/80 px-2.5 py-1.5"><div class="text-zinc-400">公用語</div><div class="text-white font-bold">${escapeHtml(info.lang)}</div></div>
+            <div class="rounded-lg bg-zinc-800/80 px-2.5 py-1.5 col-span-2"><div class="text-zinc-400">代表的な料理</div><div class="text-white font-bold">${escapeHtml(info.foods)}</div></div>
+          </div>
+          <div class="mt-3">
+            <div class="text-[11px] text-zinc-400 mb-1.5">今流行っているジャンル</div>
+            ${genreHtml(tracks)}
+          </div>
+        </div>
+        <div class="pt-2 pb-0.5 text-[11px] font-bold text-zinc-400">${c.flag} 今聴かれている曲 Top 10</div>`;
+    }
+
     // 🌍バッジを付ける基準(何カ国以上のTop10に入っていたら付けるか)
     const GLOBAL_HIT_MIN = 3;
 
@@ -173,7 +309,10 @@ export default function Home() {
 
         L.marker(c.coords, { icon: L.divIcon({ html: iconHtml, className: '', iconSize: [80, 40], iconAnchor: [40, 20] }) })
           .addTo(map)
-          .on('click', () => fetchChart(code, 'now', '今聴かれている曲 Top 10', 10));
+          .on('click', () => {
+            if (touring) pauseTour();
+            fetchChart(code, 'now', '今聴かれている曲 Top 10', 10);
+          });
       });
 
       setTimeout(() => {
@@ -295,14 +434,16 @@ export default function Home() {
       const flagEl = document.getElementById('sheet-flag');
       const titleEl = document.getElementById('sheet-title');
       if (flagEl) flagEl.textContent = country.flag;
-      if (titleEl) titleEl.textContent = `${country.name} ${displayTitle}`;
+      if (titleEl) titleEl.textContent = mode === 'now' ? country.name : `${country.name} ${displayTitle}`;
       const ytLegend = document.getElementById('legend-youtube');
       if (ytLegend) ytLegend.style.display = mode === 'top20' ? '' : 'none';
       openSheet();
 
       const container = document.getElementById('song-list-container');
+      const profile = mode === 'now' ? profileHtml(code, nowChartCache[code]) : '';
       if (container) {
-        container.innerHTML = `<div class="flex flex-col items-center justify-center py-12 space-y-3"><div class="w-7 h-7 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-zinc-300 font-bold text-center leading-relaxed">只今最新情報を取得中…<br><span class="text-zinc-400 font-medium">少しだけお待ちください</span></p></div>`;
+        container.scrollTop = 0;
+        container.innerHTML = profile + `<div class="flex flex-col items-center justify-center py-12 space-y-3"><div class="w-7 h-7 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-zinc-300 font-bold text-center leading-relaxed">只今最新情報を取得中…<br><span class="text-zinc-400 font-medium">少しだけお待ちください</span></p></div>`;
       }
 
       lastRequest = [code, mode, displayTitle, limit];
@@ -323,7 +464,7 @@ export default function Home() {
       }
 
       if (container) {
-        container.innerHTML = `<div class="flex flex-col items-center py-12 space-y-3 text-center"><p class="text-xs text-zinc-400 leading-relaxed">ランキングを取得できませんでした。<br>時間をおいて再度お試しください。</p><button type="button" data-action="retry" class="px-4 py-2 rounded-full bg-spotify-green/20 text-spotify-green text-xs font-bold active:scale-95 transition-transform"><i class="fa-solid fa-rotate-right mr-1"></i>もう一度読み込む</button></div>`;
+        container.innerHTML = profile + `<div class="flex flex-col items-center py-12 space-y-3 text-center"><p class="text-xs text-zinc-400 leading-relaxed">ランキングを取得できませんでした。<br>時間をおいて再度お試しください。</p><button type="button" data-action="retry" class="px-4 py-2 rounded-full bg-spotify-green/20 text-spotify-green text-xs font-bold active:scale-95 transition-transform"><i class="fa-solid fa-rotate-right mr-1"></i>もう一度読み込む</button></div>`;
       }
     }
     window.fetchChart = fetchChart;
@@ -333,7 +474,8 @@ export default function Home() {
       const container = document.getElementById('song-list-container');
       if (!container) return;
 
-      container.innerHTML = tracks
+      const profile = currentMode === 'now' ? profileHtml(currentCountryCode, tracks) : '';
+      container.innerHTML = profile + tracks
         .map((t, idx) => {
           const rank = t.rank || idx + 1;
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#181818"/><circle cx="150" cy="150" r="100" fill="#1DB954"/><text x="150" y="165" font-size="48" fill="#fff" text-anchor="middle">No.${rank}</text></svg>`;
@@ -401,6 +543,7 @@ export default function Home() {
     async function togglePreview(idx) {
       const t = currentTracks[idx];
       if (!t) return;
+      if (touring) pauseTour();
 
       if (playingIdx === idx && !audio.paused) {
         stopPreview();
@@ -466,6 +609,261 @@ export default function Home() {
     const shareBtn = document.getElementById('share-btn');
     shareBtn?.addEventListener('click', shareTopSong);
 
+    // ---------- 音楽で世界一周 ----------
+    let touring = false;
+    let tourPaused = false;
+    let tourIdx = 0;
+    let tourToken = 0;
+    let tourTimer = null;
+    const tourAudio = new Audio();
+    tourAudio.preload = 'auto';
+
+    // スマホで「ボタンを押した後に音を出す」許可を得るための、ごく短い無音データ
+    const SILENT_WAV = (() => {
+      const n = 400;
+      const buf = new ArrayBuffer(44 + n * 2);
+      const v = new DataView(buf);
+      const w = (o, str) => [...str].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+      w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      w(36, 'data'); v.setUint32(40, n * 2, true);
+      let bin = '';
+      new Uint8Array(buf).forEach((b) => (bin += String.fromCharCode(b)));
+      return 'data:audio/wav;base64,' + btoa(bin);
+    })();
+
+    const $ = (id) => document.getElementById(id);
+
+    function setTourButton() {
+      const main = $('tour-btn-main');
+      const sub = $('tour-btn-sub');
+      const btn = $('tour-btn');
+      if (!main || !sub || !btn) return;
+      if (touring) {
+        main.textContent = '✕ 世界一周を終了';
+        sub.style.display = 'none';
+        btn.style.background = 'rgba(39,39,42,0.95)';
+        btn.style.color = '#fff';
+      } else {
+        main.textContent = '🌐 音楽で世界一周';
+        sub.style.display = '';
+        btn.style.background = '#1DB954';
+        btn.style.color = '#000';
+      }
+    }
+
+    function setPauseLabel() {
+      const label = $('tour-pause-label');
+      const icon = $('tour-pause-icon');
+      if (label) label.textContent = tourPaused ? '再開' : '停止';
+      if (icon) icon.className = tourPaused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+    }
+
+    function setTourStatus(text) {
+      const el = $('tour-status');
+      if (el) el.textContent = text;
+    }
+
+    function openTourConfirm() {
+      const el = $('tour-confirm');
+      if (el) el.style.display = 'flex';
+    }
+    function closeTourConfirm() {
+      const el = $('tour-confirm');
+      if (el) el.style.display = 'none';
+    }
+
+    function startTour() {
+      closeTourConfirm();
+      // ボタンを押したこの瞬間に音の再生許可を取っておく
+      try {
+        tourAudio.src = SILENT_WAV;
+        tourAudio.play().catch(() => {});
+      } catch (e) {}
+      closeSheet();
+      stopPreview();
+      touring = true;
+      setTourButton();
+      const card = $('tour-card');
+      if (card) card.style.display = 'block';
+      tourGo(0);
+    }
+
+    function endTour() {
+      touring = false;
+      tourPaused = false;
+      tourToken++;
+      clearTimeout(tourTimer);
+      try {
+        tourAudio.pause();
+      } catch (e) {}
+      const card = $('tour-card');
+      if (card) card.style.display = 'none';
+      setTourButton();
+      setPauseLabel();
+      if (map) map.flyToBounds(DEFAULT_VIEW, { duration: 1.2, padding: [10, 10] });
+    }
+
+    function pauseTour() {
+      if (!touring || tourPaused) return;
+      tourPaused = true;
+      clearTimeout(tourTimer);
+      try {
+        tourAudio.pause();
+      } catch (e) {}
+      setPauseLabel();
+    }
+
+    function resumeTour() {
+      if (!touring) return;
+      tourPaused = false;
+      setPauseLabel();
+      const hasSong = tourAudio.src && !tourAudio.src.startsWith('data:') && !tourAudio.ended;
+      if (hasSong) {
+        tourAudio.play().catch(() => {});
+        const remain = ((tourAudio.duration || 30) - (tourAudio.currentTime || 0) + 3) * 1000;
+        clearTimeout(tourTimer);
+        tourTimer = setTimeout(() => tourGo(tourIdx + 1), Math.max(remain, 3000));
+      } else {
+        tourGo(tourIdx);
+      }
+    }
+
+    async function tourGo(i) {
+      const token = ++tourToken;
+      clearTimeout(tourTimer);
+      if (i >= TOUR_ORDER.length) {
+        endTour();
+        showToast('世界一周、おつかれさまでした！');
+        return;
+      }
+      tourIdx = i;
+      tourPaused = false;
+      setPauseLabel();
+      try {
+        tourAudio.pause();
+      } catch (e) {}
+
+      const code = TOUR_ORDER[i];
+      const c = COUNTRIES[code];
+      const info = COUNTRY_INFO[code];
+
+      // カードの固定情報を先に表示
+      if ($('tour-flag')) $('tour-flag').textContent = c.flag;
+      if ($('tour-name')) $('tour-name').textContent = c.name;
+      if ($('tour-count')) $('tour-count').textContent = `${i + 1}/${TOUR_ORDER.length}`;
+      const timeEl = $('tour-time');
+      if (timeEl) {
+        timeEl.dataset.tz = info.tz;
+        timeEl.innerHTML = clockHtml(info.tz);
+      }
+      if ($('tour-hello')) $('tour-hello').textContent = `${info.hello}!`;
+      if ($('tour-foods')) $('tour-foods').textContent = info.foods;
+      if ($('tour-genre')) $('tour-genre').textContent = '集計中…';
+      if ($('tour-title')) $('tour-title').textContent = '';
+      if ($('tour-artist')) $('tour-artist').textContent = '';
+      if ($('tour-img')) $('tour-img').removeAttribute('src');
+      if ($('tour-progress')) $('tour-progress').style.width = '0%';
+      setTourStatus('読み込み中…');
+
+      if (map) map.flyTo(c.coords, TOUR_ZOOM[code] || 4, { duration: 1.6 });
+
+      const tracks = await loadCountry(code);
+      if (token !== tourToken || !touring) return;
+
+      const { top } = genreSummary(tracks);
+      if ($('tour-genre')) $('tour-genre').textContent = top.length ? top.map((g) => g.name).join('・') + ' が人気' : '';
+
+      const t = tracks[0];
+      if (!t) {
+        setTourStatus('取得できませんでした');
+        tourTimer = setTimeout(() => tourGo(i + 1), 4000);
+        return;
+      }
+      if ($('tour-title')) $('tour-title').textContent = t.title;
+      if ($('tour-artist')) $('tour-artist').textContent = t.artist;
+      if ($('tour-img') && t.img) $('tour-img').src = t.img;
+
+      let url = t.previewUrl;
+      if (!url) {
+        try {
+          const r = await fetch(`/api/preview?id=${encodeURIComponent(t.id)}&country=${code}`);
+          if (r.ok) url = (await r.json()).previewUrl;
+        } catch (e) {}
+        if (url) t.previewUrl = url;
+      }
+      if (token !== tourToken || !touring) return;
+
+      if (!url) {
+        setTourStatus('この曲は試聴音源がありません');
+        tourTimer = setTimeout(() => tourGo(i + 1), 6000);
+        return;
+      }
+
+      // 一時停止中に読み込みが終わった場合は、再開を待つ
+      if (tourPaused) {
+        tourAudio.src = url;
+        setTourStatus('一時停止中');
+        return;
+      }
+
+      setTourStatus('1位 再生中');
+      tourAudio.src = url;
+      tourAudio.play().catch(() => {
+        tourPaused = true;
+        setPauseLabel();
+        setTourStatus('「再開」を押すと再生します');
+      });
+      // 万一「再生終了」の合図が来なくても先へ進む保険
+      tourTimer = setTimeout(() => {
+        if (token === tourToken && touring && !tourPaused) tourGo(i + 1);
+      }, 35000);
+    }
+
+    tourAudio.addEventListener('ended', () => {
+      if (touring && !tourPaused && !tourAudio.src.startsWith('data:')) tourGo(tourIdx + 1);
+    });
+    tourAudio.addEventListener('timeupdate', () => {
+      const bar = $('tour-progress');
+      if (bar && tourAudio.duration && !tourAudio.src.startsWith('data:')) {
+        bar.style.width = `${Math.min(100, (tourAudio.currentTime / tourAudio.duration) * 100)}%`;
+      }
+    });
+
+    const tourBtn = $('tour-btn');
+    const onTourBtn = () => (touring ? endTour() : openTourConfirm());
+    tourBtn?.addEventListener('click', onTourBtn);
+    const tourGoBtn = $('tour-go');
+    tourGoBtn?.addEventListener('click', startTour);
+    const tourCancelBtn = $('tour-cancel');
+    tourCancelBtn?.addEventListener('click', closeTourConfirm);
+    const tourPauseBtn = $('tour-pause');
+    const onTourPause = (e) => {
+      e.stopPropagation();
+      tourPaused ? resumeTour() : pauseTour();
+    };
+    tourPauseBtn?.addEventListener('click', onTourPause);
+    const tourNextBtn = $('tour-next');
+    const onTourNext = (e) => {
+      e.stopPropagation();
+      tourGo(tourIdx + 1);
+    };
+    tourNextBtn?.addEventListener('click', onTourNext);
+    // カードをタップ → その国の詳しいプロフィールとランキングを開く(世界一周は一時停止)
+    const tourCard = $('tour-card');
+    const onTourCard = () => {
+      if (!touring) return;
+      pauseTour();
+      fetchChart(TOUR_ORDER[tourIdx], 'now', '今聴かれている曲 Top 10', 10);
+    };
+    tourCard?.addEventListener('click', onTourCard);
+    // 別のアプリに切り替えたら一時停止
+    const onVisibility = () => {
+      if (document.hidden) pauseTour();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     // ---------- 閉じる操作 ----------
     const closeBtn = document.getElementById('close-sheet-btn');
     const handleEl = document.getElementById('sheet-handle');
@@ -513,6 +911,20 @@ export default function Home() {
       shareBtn?.removeEventListener('click', shareTopSong);
       listEl?.removeEventListener('click', onListClick);
       stopPreview();
+      clearInterval(clockTimer);
+      tourBtn?.removeEventListener('click', onTourBtn);
+      tourGoBtn?.removeEventListener('click', startTour);
+      tourCancelBtn?.removeEventListener('click', closeTourConfirm);
+      tourPauseBtn?.removeEventListener('click', onTourPause);
+      tourNextBtn?.removeEventListener('click', onTourNext);
+      tourCard?.removeEventListener('click', onTourCard);
+      document.removeEventListener('visibilitychange', onVisibility);
+      touring = false;
+      tourToken++;
+      clearTimeout(tourTimer);
+      try {
+        tourAudio.pause();
+      } catch (e) {}
       if (map) {
         map.remove();
         map = null;
@@ -596,7 +1008,7 @@ export default function Home() {
           {/* 集計中の進み具合 */}
           <div
             id="load-progress"
-            className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-spotify-green/60 shadow-lg backdrop-blur-md text-[11px] font-bold text-white whitespace-nowrap pointer-events-none"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-spotify-green/60 shadow-lg backdrop-blur-md text-[11px] font-bold text-white whitespace-nowrap pointer-events-none"
             style={{ zIndex: 700, transition: 'opacity 0.5s ease' }}
           >
             <span className="w-3 h-3 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></span>
@@ -605,6 +1017,74 @@ export default function Home() {
             <span id="load-progress-num" className="text-spotify-green">
               0/11
             </span>
+          </div>
+
+          {/* 音楽で世界一周ボタン(押す前=出発/押した後=終了) */}
+          <button
+            id="tour-btn"
+            type="button"
+            className="absolute top-2 right-2 flex flex-col items-center px-3 py-1.5 rounded-2xl shadow-lg active:scale-95 transition-transform cursor-pointer"
+            style={{ zIndex: 750, background: '#1DB954', color: '#000' }}
+          >
+            <span id="tour-btn-main" className="text-xs font-extrabold leading-tight">
+              🌐 音楽で世界一周
+            </span>
+            <span id="tour-btn-sub" className="text-[9px] font-bold leading-tight opacity-80">
+              🔊 各国の1位が30秒ずつ流れます
+            </span>
+          </button>
+
+          {/* 世界一周中のカード */}
+          <div
+            id="tour-card"
+            className="absolute left-2 right-2 bottom-2 rounded-2xl border border-spotify-green p-3 shadow-2xl cursor-pointer"
+            style={{ zIndex: 750, display: 'none', background: 'rgba(18,18,20,0.96)' }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 min-w-0">
+                <span id="tour-flag" className="text-lg leading-none"></span>
+                <span id="tour-name" className="text-sm font-extrabold text-white"></span>
+                <span id="tour-time" className="gt-localtime text-xs font-bold text-white ml-1"></span>
+              </div>
+              <div className="flex items-center space-x-2 shrink-0">
+                <span id="tour-hello" className="text-sm font-extrabold" style={{ color: '#F5B8D5' }}></span>
+                <span id="tour-count" className="text-[10px] text-zinc-400"></span>
+              </div>
+            </div>
+            <div className="mt-1 text-[11px] text-zinc-400 truncate">
+              🍽 <span id="tour-foods"></span>
+            </div>
+            <div className="text-[11px] text-zinc-400 truncate">
+              🎵 <span id="tour-genre"></span>
+            </div>
+            <div className="mt-2 flex items-center space-x-2.5">
+              <img id="tour-img" alt="" className="w-11 h-11 rounded-lg object-cover bg-zinc-800 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div id="tour-status" className="text-[10px] font-bold text-spotify-green"></div>
+                <div id="tour-title" className="text-xs font-bold text-white truncate"></div>
+                <div id="tour-artist" className="text-[11px] text-zinc-400 truncate"></div>
+              </div>
+            </div>
+            <div className="h-1 bg-zinc-800 rounded-full my-2 overflow-hidden">
+              <div id="tour-progress" className="h-full bg-spotify-green rounded-full" style={{ width: '0%', transition: 'width 0.25s linear' }}></div>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                id="tour-pause"
+                type="button"
+                className="flex-1 py-1.5 rounded-xl bg-zinc-800 text-zinc-200 text-[11px] font-bold active:scale-95 transition-transform"
+              >
+                <i id="tour-pause-icon" className="fa-solid fa-pause"></i> <span id="tour-pause-label">停止</span>
+              </button>
+              <button
+                id="tour-next"
+                type="button"
+                className="flex-1 py-1.5 rounded-xl bg-spotify-green text-black text-[11px] font-bold active:scale-95 transition-transform"
+              >
+                <i className="fa-solid fa-forward-step"></i> 次の国へ
+              </button>
+            </div>
+            <div className="mt-1.5 text-center text-[9px] text-zinc-500">カードをタップすると、この国のプロフィールとランキングが開きます</div>
           </div>
         </div>
 
@@ -717,6 +1197,41 @@ export default function Home() {
             <p className="mt-1 text-[9px] text-zinc-500">出典：Apple Music 再生回数ランキング</p>
           </div>
           <div id="song-list-container" className="flex-1 overflow-y-auto px-4 py-3 space-y-2"></div>
+        </div>
+
+        {/* 世界一周の確認カード */}
+        <div
+          id="tour-confirm"
+          className="fixed inset-0 max-w-md mx-auto items-center justify-center px-6"
+          style={{ zIndex: 1800, display: 'none', background: 'rgba(0,0,0,0.65)' }}
+        >
+          <div className="w-full rounded-2xl bg-zinc-900 border border-spotify-green/60 p-5 text-center shadow-2xl">
+            <div className="text-lg font-extrabold text-white mb-2">🌐 音楽で世界一周</div>
+            <p className="text-xs text-zinc-300 leading-relaxed mb-2">
+              これから11カ国を巡り、各国で今1位の曲を
+              <br />
+              30秒ずつ再生します(約5分半)。
+            </p>
+            <p className="text-[11px] font-bold leading-relaxed mb-4" style={{ color: '#F5B8D5' }}>
+              🔊 音が出ます。周りの環境と音量にご注意ください。
+            </p>
+            <div className="flex space-x-2">
+              <button
+                id="tour-cancel"
+                type="button"
+                className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-200 text-xs font-bold active:scale-95 transition-transform"
+              >
+                やめる
+              </button>
+              <button
+                id="tour-go"
+                type="button"
+                className="flex-1 py-2.5 rounded-xl bg-spotify-green text-black text-xs font-extrabold active:scale-95 transition-transform"
+              >
+                出発する
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* お知らせ表示 */}
