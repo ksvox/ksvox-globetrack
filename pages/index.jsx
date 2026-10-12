@@ -181,7 +181,28 @@ export default function Home() {
     }
 
     // 全カ国を一斉に取りに行き、届いた国から順に吹き出しへ表示する(全部そろうのを待たない)
+    // 地図上部の「集計中… ○/11」表示
+    const TOTAL_COUNTRIES = Object.keys(COUNTRIES).length;
+    let loadedCount = 0;
+    function updateProgress() {
+      const box = document.getElementById('load-progress');
+      const num = document.getElementById('load-progress-num');
+      if (num) num.textContent = `${loadedCount}/${TOTAL_COUNTRIES}`;
+      if (box && loadedCount >= TOTAL_COUNTRIES) {
+        const label = document.getElementById('load-progress-label');
+        if (label) label.textContent = '集計完了！';
+        setTimeout(() => {
+          box.style.opacity = '0';
+          setTimeout(() => {
+            box.style.display = 'none';
+          }, 500);
+        }, 900);
+      }
+    }
+
     function preloadTopSongs() {
+      loadedCount = 0;
+      updateProgress();
       Object.keys(COUNTRIES).forEach(async (code) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10000);
@@ -201,6 +222,8 @@ export default function Home() {
         } catch (e) {
         } finally {
           clearTimeout(timer);
+          loadedCount++;
+          updateProgress();
         }
         if (!nowChartCache[code]) updateBubbleSong(code, '—');
       });
@@ -250,7 +273,7 @@ export default function Home() {
 
       const container = document.getElementById('song-list-container');
       if (container) {
-        container.innerHTML = `<div class="flex items-center justify-center py-12 space-x-2"><div class="w-6 h-6 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div><span class="text-xs text-zinc-400">取得中...</span></div>`;
+        container.innerHTML = `<div class="flex flex-col items-center justify-center py-12 space-y-3"><div class="w-7 h-7 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></div><p class="text-xs text-zinc-300 font-bold text-center leading-relaxed">只今最新情報を取得中…<br><span class="text-zinc-400 font-medium">少しだけお待ちください</span></p></div>`;
       }
 
       if (mode === 'now' && nowChartCache[code]) {
@@ -543,6 +566,19 @@ export default function Home() {
         {/* 地図エリア */}
         <div id="map-wrapper">
           <div id="map"></div>
+          {/* 集計中の進み具合 */}
+          <div
+            id="load-progress"
+            className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-spotify-green/60 shadow-lg backdrop-blur-md text-[11px] font-bold text-white whitespace-nowrap pointer-events-none"
+            style={{ zIndex: 700, transition: 'opacity 0.5s ease' }}
+          >
+            <span className="w-3 h-3 border-2 border-spotify-green border-t-transparent rounded-full animate-spin"></span>
+            <span>🌍</span>
+            <span id="load-progress-label">世界11カ国のランキングを集計中…</span>
+            <span id="load-progress-num" className="text-spotify-green">
+              0/11
+            </span>
+          </div>
         </div>
 
         {/* K's VOX Spotify プレイリスト枠 */}
